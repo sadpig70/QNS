@@ -1,0 +1,23 @@
+[package]
+name = "qns_rewire"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Circuit rewiring engine for QNS (Quantum Noise Symbiote)"
+
+[dependencies]
+qns_core = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+rayon = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+qns_simulator = { path = "../qns_simulator" }
+
+[[bench]]
+name = "rewire"
+harness = false

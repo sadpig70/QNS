@@ -1,0 +1,32 @@
+[package]
+name = "qns_cli"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "CLI application for QNS (Quantum Noise Symbiote)"
+
+[[bin]]
+name = "qns"
+path = "src/main.rs"
+
+[dependencies]
+qns_core = { workspace = true }
+qns_profiler = { workspace = true }
+qns_rewire = { workspace = true }
+qns_simulator = { workspace = true }
+qns_qasm = { path = "../qns_qasm" }
+qns_tensor = { path = "../qns_tensor" }
+qns_noise = { path = "../qns_noise" }
+axum = "0.7"
+tokio = { version = "1.0", features = ["full"] }
+tower-http = { version = "0.5", features = ["cors"] }
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+clap = { workspace = true }
+anyhow = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }

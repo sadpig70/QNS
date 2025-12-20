@@ -1,0 +1,33 @@
+// Adder - 4 qubits
+// From QASMBench Small category
+OPENQASM 2.0;
+include "qelib1.inc";
+
+qreg cin[1];
+qreg a[2];
+qreg b[2];
+qreg cout[1];
+creg ans[2];
+
+// Majority gate
+cx a[0],b[0];
+cx a[0],cin[0];
+ccx cin[0],b[0],a[0];
+
+cx a[1],b[1];
+cx a[1],a[0];
+ccx a[0],b[1],a[1];
+
+// Carry
+ccx a[1],b[1],cout[0];
+
+// Unmajority and add
+ccx a[0],b[1],a[1];
+cx a[1],a[0];
+cx a[1],b[1];
+
+ccx cin[0],b[0],a[0];
+cx a[0],cin[0];
+cx a[0],b[0];
+
+measure b -> ans;

@@ -1,0 +1,48 @@
+[build-system]
+requires = ["maturin>=1.4,<2.0"]
+build-backend = "maturin"
+
+[project]
+name = "qns"
+version = "0.1.0"
+description = "Quantum Noise Symbiote - Noise-aware quantum circuit optimization"
+readme = "README.md"
+license = { text = "MIT OR Apache-2.0" }
+authors = [
+    { name = "Jung Wook Yang", email = "sadpig70@gmail.com" }
+]
+keywords = ["quantum", "computing", "optimization", "noise", "qiskit"]
+classifiers = [
+    "Development Status :: 4 - Beta",
+    "Intended Audience :: Developers",
+    "Intended Audience :: Science/Research",
+    "License :: OSI Approved :: MIT License",
+    "License :: OSI Approved :: Apache Software License",
+    "Operating System :: OS Independent",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Rust",
+    "Topic :: Scientific/Engineering :: Physics",
+]
+requires-python = ">=3.9"
+
+[project.optional-dependencies]
+qiskit = ["qiskit>=1.0"]
+dev = ["pytest>=7.0", "qiskit>=1.0", "numpy>=1.20"]
+
+[project.urls]
+Homepage = "https://github.com/qns-ai/qns-mvp"
+Documentation = "https://qns-ai.github.io/qns-mvp"
+Repository = "https://github.com/qns-ai/qns-mvp"
+
+[tool.maturin]
+features = ["pyo3/extension-module"]
+python-source = "python"
+module-name = "qns"
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]

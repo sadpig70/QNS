@@ -1,0 +1,9 @@
+"""
+Requirements for Enhanced QNS Benchmark Suite
+"""
+
+matplotlib>=3.5.0
+numpy>=1.20.0
+scipy>=1.7.0
+qiskit>=0.45.0  # Optional: for Qiskit Aer comparison
+qiskit-aer>=0.13.0  # Optional: for Qiskit Aer comparison

@@ -1,0 +1,24 @@
+[package]
+name = "qns_simulator"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Quantum simulator for QNS (Quantum Noise Symbiote)"
+
+[dependencies]
+qns_core = { workspace = true }
+thiserror = { workspace = true }
+tracing = { workspace = true }
+num-complex = { workspace = true }
+ndarray = { workspace = true }
+rand = { workspace = true }
+
+[dev-dependencies]
+criterion = { workspace = true }
+
+[[bench]]
+name = "simulator"
+harness = false

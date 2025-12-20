@@ -1,0 +1,18 @@
+[package]
+name = "qns_tensor"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+qns_core = { path = "../qns_core" }
+ndarray = "0.15"
+thiserror = "1.0"
+num-complex = "0.4"
+rand = "0.8"
+nalgebra = "0.32"
+qns_noise = { path = "../qns_noise" }
+

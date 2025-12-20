@@ -1,0 +1,17 @@
+# QNS Python Dependencies
+
+# Core Qiskit packages
+qiskit>=1.0.0
+qiskit-aer>=0.13.0
+qiskit-ibm-runtime>=0.17.0
+
+# Scientific computing
+numpy>=1.24.0
+scipy>=1.11.0
+
+# Development tools
+pytest>=7.4.0
+pytest-cov>=4.1.0
+
+# Environment management
+python-dotenv>=1.0.0

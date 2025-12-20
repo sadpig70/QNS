@@ -1,0 +1,74 @@
+[workspace]
+members = [
+    "crates/qns_core",
+    "crates/qns_profiler",
+    "crates/qns_rewire",
+    "crates/qns_simulator",
+    "crates/qns_cli",
+    "crates/qns_qasm",
+    "crates/qns_tensor",
+    "crates/qns_noise",
+    "crates/qns_python",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+authors = ["Jung Wook Yang <sadpig70@gmail.com>"]
+license = "MIT"
+repository = "https://github.com/sadpig70/QNS"
+rust-version = "1.75"
+
+[workspace.dependencies]
+# 내부 크레이트
+qns_core = { path = "crates/qns_core" }
+qns_profiler = { path = "crates/qns_profiler" }
+qns_rewire = { path = "crates/qns_rewire" }
+qns_simulator = { path = "crates/qns_simulator" }
+qns_qasm = { path = "crates/qns_qasm" }
+qns_tensor = { path = "crates/qns_tensor" }
+qns_noise = { path = "crates/qns_noise" }
+
+# 직렬화
+serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
+
+# 에러 처리
+anyhow = "1.0"
+thiserror = "1.0"
+
+# 수학 및 과학
+ndarray = "0.15"
+num-complex = "0.4"
+rand = "0.8"
+rand_distr = "0.4"
+
+# 병렬 처리
+rayon = "1.10"
+
+# CLI
+clap = { version = "4.4", features = ["derive"] }
+
+# 로깅
+tracing = "0.1"
+tracing-subscriber = { version = "0.3", features = ["env-filter"] }
+
+# 테스트/벤치마크
+criterion = "0.5"
+
+# Python 바인딩
+pyo3 = { version = "0.20", features = ["extension-module"] }
+
+[profile.dev]
+opt-level = 0
+debug = true
+
+[profile.release]
+opt-level = 3
+lto = true
+codegen-units = 1
+strip = true
+
+[profile.bench]
+inherits = "release"

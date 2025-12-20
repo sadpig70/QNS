@@ -1,0 +1,67 @@
+# Generated files
+/target/
+Cargo.lock
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Build artifacts
+*.so
+*.dylib
+*.dll
+*.a
+*.lib
+*.exe
+
+# Coverage
+*.gcda
+*.gcno
+*.profraw
+*.profdata
+coverage/
+tarpaulin-report.html
+
+# Benchmark results
+criterion/
+
+# Documentation build
+/docs/target/
+
+# Test data
+/tmp/
+*.log
+
+# Environment
+.env
+.env.local
+
+# Project specific
+_legacy/
+.agent/
+.claude/
+CLAUDE.md
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.Python
+env/
+venv/
+.venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+

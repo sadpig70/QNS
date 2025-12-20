@@ -1,0 +1,27 @@
+[package]
+name = "qns_python"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Python bindings for QNS (Quantum Noise Symbiote)"
+
+[lib]
+name = "qns_py"
+crate-type = ["cdylib"]
+
+[dependencies]
+qns_core = { workspace = true }
+qns_profiler = { workspace = true }
+qns_rewire = { workspace = true }
+qns_simulator = { workspace = true }
+
+pyo3 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+num-complex = { workspace = true }
+
+[features]
+default = []

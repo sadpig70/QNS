@@ -1,0 +1,13 @@
+[package]
+name = "qns_qasm"
+version = "0.1.0"
+edition = "2021"
+description = "OpenQASM parser for QNS"
+
+[dependencies]
+qns_core = { path = "../qns_core" }
+nom = "7.1"
+anyhow = "1.0"
+thiserror = "1.0"
+
+[dev-dependencies]
