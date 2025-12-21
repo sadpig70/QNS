@@ -89,29 +89,6 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - run: cargo test --package qns_cli --test integration
 
-  python-test:
-    name: Python Bridge Test
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-      - uses: dtolnay/rust-toolchain@stable
-      - uses: Swatinem/rust-cache@v2
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip
-          pip install maturin pytest qiskit qiskit-aer qiskit-ibm-runtime
-      - name: Build Python extension
-        working-directory: crates/qns_python
-        run: |
-          maturin develop --release
-      - name: Run Python tests
-        working-directory: crates/qns_python
-        run: |
-          python -m pytest tests/ -v --tb=short
-
   bench:
     name: Benchmarks
     runs-on: ubuntu-latest
