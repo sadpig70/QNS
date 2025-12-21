@@ -111,21 +111,31 @@ qns run circuit.qasm --backend aer-ideal --format json
 
 ## 📈 Benchmark Results
 
-QNS LiveRewirer optimization benchmarked against 5 quantum circuits:
+QNS LiveRewirer optimization (SABRE + optimization_level=3) vs Baseline (level=1):
 
-| Circuit | Qubits | Baseline | QNS | Improvement |
-|---------|--------|----------|-----|-------------|
-| Bell | 2 | 1.0000 | 1.0000 | +0.0% |
-| GHZ-3 | 3 | 1.0000 | 0.9900 | -1.0% |
-| GHZ-5 | 5 | 0.9700 | 0.9700 | +0.0% |
-| QAOA | 4 | 0.2800 | 0.2800 | +0.0% |
-| **VQE** | 4 | 0.3400 | **0.3536** | **+4.0%** |
+### Ideal Environment
 
-> 📄 See [QNS Benchmark Results](docs/QNS_Benchmark_Results.md) for full analysis.
+| Circuit | Baseline | QNS | Improvement |
+|---------|----------|-----|-------------|
+| Bell | 1.0000 | 1.0000 | +0.0% |
+| GHZ-5 | 1.0000 | 0.9700 | -3.0% |
+| **VQE** | 0.4000 | **0.4576** | **+14.4%** |
+
+### NISQ Environment (Noisy) ⭐
+
+| Circuit | Baseline | QNS | Improvement |
+|---------|----------|-----|-------------|
+| GHZ-5 | 0.9700 | 0.9700 | +0.0% |
+| **VQE** | 0.3600 | **0.4576** | **+27.1%** ✅ |
+
+> 📄 See [Benchmark Results](docs/QNS_Benchmark_Results.md) for full analysis.
 
 ```bash
-# Run benchmarks
+# Ideal benchmark
 python benchmarks/arxiv_benchmark.py --output benchmarks/results
+
+# NISQ noisy benchmark
+python benchmarks/arxiv_benchmark.py --output benchmarks/results --noisy
 ```
 
 ## 📖 Documentation
