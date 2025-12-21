@@ -109,11 +109,32 @@ qns run circuit.qasm --backend aer-ideal --format json
 | LiveRewirer | <100ms |
 | StateVectorSim | <50ms (10 qubits) |
 
+## 📈 Benchmark Results
+
+QNS LiveRewirer optimization benchmarked against 5 quantum circuits:
+
+| Circuit | Qubits | Baseline | QNS | Improvement |
+|---------|--------|----------|-----|-------------|
+| Bell | 2 | 1.0000 | 1.0000 | +0.0% |
+| GHZ-3 | 3 | 1.0000 | 0.9900 | -1.0% |
+| GHZ-5 | 5 | 0.9700 | 0.9700 | +0.0% |
+| QAOA | 4 | 0.2800 | 0.2800 | +0.0% |
+| **VQE** | 4 | 0.3400 | **0.3536** | **+4.0%** |
+
+> 📄 See [QNS Benchmark Results](docs/QNS_Benchmark_Results.md) for full analysis.
+
+```bash
+# Run benchmarks
+python benchmarks/arxiv_benchmark.py --output benchmarks/results
+```
+
 ## 📖 Documentation
 
 - [Technical Specification (English)](docs/QNS_Technical_Specification_v2.2.md)
 - [Technical Specification (Korean)](docs/QNS_Technical_Specification_v2.2_kr.md)
 - [Qiskit Usage Examples](docs/QNS_Qiskit_Usage_Examples.md)
+- [Benchmark Results](docs/QNS_Benchmark_Results.md)
+- [Mathematical Formalization](docs/QNS_Mathematical_Formalization.md)
 
 ## 🛠️ Development
 

@@ -1,0 +1,6 @@
+Circuit,Qubits,Gates,Shots,Baseline Fidelity,QNS Fidelity,Improvement (%),Rewire Time (ms),Noise Model
+Bell,2,2,100,1.0000,1.0000,+0.00,155.41,Aer Noisy (mock)
+GHZ-3,3,3,100,1.0000,0.9900,-1.00,130.81,Aer Noisy (mock)
+GHZ-5,5,5,100,0.9700,0.9700,+0.00,131.35,Aer Noisy (mock)
+QAOA,4,36,50,0.2800,0.2800,+0.00,132.02,Aer Noisy (mock)
+VQE,4,18,50,0.3400,0.3536,+4.00,124.34,Aer Noisy (mock)

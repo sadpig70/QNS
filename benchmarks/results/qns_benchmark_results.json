@@ -1,0 +1,64 @@
+{
+  "metadata": {
+    "date": "2025-12-21 12:53:33",
+    "random_seed": 42,
+    "total_circuits": 5
+  },
+  "results": [
+    {
+      "circuit": "Bell",
+      "qubits": 2,
+      "gates": 2,
+      "shots": 100,
+      "baseline_fidelity": 1.0,
+      "qns_fidelity": 1.0,
+      "improvement_percent": 0.0,
+      "rewire_time_ms": 155.4108001291752,
+      "noise_model": "Aer Noisy (mock)"
+    },
+    {
+      "circuit": "GHZ-3",
+      "qubits": 3,
+      "gates": 3,
+      "shots": 100,
+      "baseline_fidelity": 1.0,
+      "qns_fidelity": 0.99,
+      "improvement_percent": -1.0000000000000009,
+      "rewire_time_ms": 130.80770010128617,
+      "noise_model": "Aer Noisy (mock)"
+    },
+    {
+      "circuit": "GHZ-5",
+      "qubits": 5,
+      "gates": 5,
+      "shots": 100,
+      "baseline_fidelity": 0.97,
+      "qns_fidelity": 0.97,
+      "improvement_percent": 0.0,
+      "rewire_time_ms": 131.34939968585968,
+      "noise_model": "Aer Noisy (mock)"
+    },
+    {
+      "circuit": "QAOA",
+      "qubits": 4,
+      "gates": 36,
+      "shots": 50,
+      "baseline_fidelity": 0.28,
+      "qns_fidelity": 0.28,
+      "improvement_percent": 0.0,
+      "rewire_time_ms": 132.02070025727153,
+      "noise_model": "Aer Noisy (mock)"
+    },
+    {
+      "circuit": "VQE",
+      "qubits": 4,
+      "gates": 18,
+      "shots": 50,
+      "baseline_fidelity": 0.34,
+      "qns_fidelity": 0.3536,
+      "improvement_percent": 4.0,
+      "rewire_time_ms": 124.33659983798862,
+      "noise_model": "Aer Noisy (mock)"
+    }
+  ]
+}
