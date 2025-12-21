@@ -200,8 +200,13 @@ impl PyCircuit {
             .collect()
     }
 
-    fn __len__(&self) -> usize {
+    #[getter]
+    fn num_gates(&self) -> usize {
         self.inner.gates.len()
+    }
+
+    fn __len__(&self) -> usize {
+        self.inner.num_qubits()
     }
 
     fn __getitem__(&self, index: isize) -> PyResult<PyGate> {
@@ -497,6 +502,7 @@ impl PyNoiseModel {
     fn is_valid(&self) -> bool {
         self.t1 > 0.0
             && self.t2 > 0.0
+            && self.t2 <= 2.0 * self.t1  // 물리적 제약: T2 <= 2*T1
             && (0.0..=1.0).contains(&self.gate_error_1q)
             && (0.0..=1.0).contains(&self.gate_error_2q)
             && (0.0..=1.0).contains(&self.readout_error)
@@ -717,11 +723,11 @@ impl PyQnsOptimizer {
         self.max_iterations = max_iterations;
     }
 
-    #[pyo3(signature = (circuit, _use_beam_search=None))]
+    #[pyo3(signature = (circuit, use_beam_search=None))]
     fn optimize(
         &self,
         circuit: &PyCircuit,
-        _use_beam_search: Option<bool>,
+        use_beam_search: Option<bool>,
     ) -> PyResult<PyOptimizationResult> {
         let start = std::time::Instant::now();
 
@@ -1040,7 +1046,7 @@ impl PySimulatorBackend {
 
     fn topology(&self) -> PyHardwareProfile {
         PyHardwareProfile {
-            inner: CoreHardwareProfile::all_to_all(&self.name, self.num_qubits),
+            inner: CoreHardwareProfile::linear(&self.name, self.num_qubits),
         }
     }
 
