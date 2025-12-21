@@ -123,9 +123,27 @@ jobs:
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+      - name: Install Python dependencies
+        run: pip install qiskit qiskit-aer
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
-      - run: cargo bench --no-run
+      - name: Run Rust benchmarks
+        run: cargo bench --no-run
+      - name: Run Python benchmark suite
+        run: |
+          mkdir -p benchmark_results
+          python benchmarks/arxiv_benchmark.py --output benchmark_results
+          python benchmarks/arxiv_benchmark.py --output benchmark_results --noisy
+        continue-on-error: true
+      - name: Upload benchmark results
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: benchmark_results/
+          if-no-files-found: ignore
 
   release:
     name: Build Release
