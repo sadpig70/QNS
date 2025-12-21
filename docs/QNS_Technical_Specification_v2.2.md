@@ -127,18 +127,72 @@ The same quantum algorithm can be affected differently by noise depending on gat
 
 ### 2.4 Fidelity Estimation Model
 
-$$F_{circuit} \approx \prod_g (1 - \varepsilon_g) \times \exp\left(-\sum_g \frac{t_g}{T_1}\right) \times \exp\left(-\sum_g \frac{t_g}{T_\phi}\right) \times (1 - \varepsilon_{ro})^{n_m}$$
+#### 2.4.1 Optimization Objective Function
+
+$$
+C^* = \arg\max_{C' \in \mathcal{V}(C)} \hat{F}(C', \mathbf{n}(t))
+$$
+
+| Symbol | Definition | Domain |
+|--------|------------|--------|
+| $C$ | Original quantum circuit | Gate sequence |
+| $C^*$ | Optimized circuit | Gate sequence |
+| $\mathcal{V}(C)$ | Set of mathematically equivalent circuit variants | $\|V\| \geq 1$ |
+| $\mathbf{n}(t)$ | Time-dependent noise profile vector | $\mathbb{R}^3$ |
+| $\hat{F}$ | Fidelity estimation function | $[0, 1]$ |
+
+#### 2.4.2 Variant Set Definition
+
+$$
+\mathcal{V}(C) = \{ C' : U_{C'} = U_C \}
+$$
+
+Where $U_C$ is the unitary matrix representation:
+
+$$
+U_C = \prod_{i=1}^{n} U_{g_i}
+$$
+
+**Transformation Rules:**
+
+- Gate commutation: $[g_i, g_j] = 0 \Rightarrow g_i g_j = g_j g_i$
+- Gate decomposition: $U_{CNOT} = (H \otimes I) \cdot CZ \cdot (H \otimes I)$
+- Gate synthesis: Multiple single-qubit gates → single $U3$ gate
+
+#### 2.4.3 Noise Profile Vector
+
+$$
+\mathbf{n}(t) = \begin{pmatrix} T_1(t) \\ T_2(t) \\ \boldsymbol{\epsilon}(t) \end{pmatrix}
+$$
+
+| Parameter | Description | Typical Range |
+|-----------|-------------|---------------|
+| $T_1$ | Relaxation time | 50-100 μs |
+| $T_2$ | Dephasing time | 20-80 μs |
+| $\boldsymbol{\epsilon}$ | Gate error vector | $10^{-4} - 10^{-2}$ |
+
+#### 2.4.4 Complete Fidelity Model
+
+$$
+\boxed{
+\hat{F}(C, \mathbf{n}) = (1 - \epsilon_{1q})^{n_{1q}} \cdot (1 - \epsilon_{2q})^{n_{2q}} \cdot \exp\left(-\frac{t_{total}}{T_2}\right)
+}
+$$
+
+**Components:**
+
+1. **Gate Fidelity**: $F_{gate}(C) = (1 - \epsilon_{1q})^{n_{1q}} \cdot (1 - \epsilon_{2q})^{n_{2q}}$
+2. **Decoherence Fidelity**: $F_{decoherence}(C, T_2) = \exp\left(-\frac{t_{total}}{T_2}\right)$
 
 Where:
 
-- $\varepsilon_g$: Gate error rate (1Q/2Q differentiated)
-- $t_g$: Gate execution time
-- $T_1$: Energy relaxation time
-- $T_\phi$: Pure phase relaxation time
-- $\varepsilon_{ro}$: Readout error rate
-- $n_m$: Number of measured qubits
+- $\epsilon_{1q}$: Single-qubit gate error rate
+- $\epsilon_{2q}$: Two-qubit gate error rate
+- $n_{1q}$: Number of single-qubit gates
+- $n_{2q}$: Number of two-qubit gates
+- $t_{total} = \sum_{g \in C} t_g + t_{idle}$: Total circuit execution time
 
-> **Note:** This model is a **heuristic for relative comparison**.
+> **📘 Detailed Mathematical Formalization:** See [QNS_Mathematical_Formalization.md](QNS_Mathematical_Formalization.md)
 
 ---
 
@@ -403,14 +457,27 @@ Cost = α × distance + β × (1 - edge_fidelity)
 | Aer Noisy | 2q, Bell state, 1024 shots | ~100 ms | mock calibration |
 | Aer IBM | 2q, Bell state, 1024 shots | ~150 ms | ibm_fez calibration |
 
-### 6.4 🆕 Fidelity Comparison
+### 6.4 🆕 arXiv Benchmark Results (QNS vs Baseline)
 
-| Circuit | Aer Ideal | Aer Noisy | Difference |
-|---------|-----------|-----------|------------|
-| Bell State (2q) | 0.501 | 0.493 | -1.6% |
-| GHZ State (3q) | 0.498 | 0.486 | -2.4% |
+#### Ideal Environment (Noiseless)
 
-> Fidelity reduction confirmed as expected in noisy simulation
+| Circuit | Baseline | QNS | Improvement |
+|---------|----------|-----|-------------|
+| Bell | 1.0000 | 1.0000 | +0.0% |
+| GHZ-5 | 1.0000 | 0.9700 | -3.0% |
+| **VQE** | 0.4000 | **0.4576** | **+14.4%** |
+
+#### NISQ Environment (Noisy) ⭐
+
+| Circuit | Baseline | QNS | Improvement |
+|---------|----------|-----|-------------|
+| Bell | 1.0000 | 1.0000 | +0.0% |
+| GHZ-5 | 0.9700 | 0.9700 | +0.0% |
+| **VQE** | 0.3600 | **0.4576** | **+27.1%** ✅ |
+
+> 📊 Detailed results: See [QNS_Benchmark_Results.md](QNS_Benchmark_Results.md)
+>
+> 📘 Mathematical formalization: See [QNS_Mathematical_Formalization.md](QNS_Mathematical_Formalization.md)
 
 ### 6.5 Scaling
 
@@ -519,7 +586,20 @@ Commercial use, modification, and distribution are permitted.
 | v1.0 | 2025-11-27 | Initial version |
 | v2.0 | 2025-11-27 | AI evaluation reflected, expression corrections |
 | v2.1 | 2025-12-17 | Implementation status update (all modules complete), MIT license unification |
-| **v2.2** | **2025-12-20** | **Qiskit integration complete (Sprint 1-4)** |
+| v2.2 | 2025-12-20 | Qiskit integration complete (Sprint 1-4) |
+| **v2.3** | **2025-12-21** | **Mathematical formalization integration, arXiv benchmark results added** |
+
+**Major Changes (v2.3):**
+
+- 📘 Section 2.4 Fidelity Estimation Model expanded (mathematical rigor added)
+  - Optimization objective function: $C^* = \arg\max \hat{F}(C', \mathbf{n}(t))$
+  - Variant set definition: $\mathcal{V}(C) = \{ C' : U_{C'} = U_C \}$
+  - Noise profile vector: $\mathbf{n}(t) = (T_1, T_2, \epsilon)$
+  - Complete fidelity model (boxed formula)
+- 📊 Section 6.4 arXiv benchmark results updated
+  - Ideal environment: VQE +14.4%
+  - NISQ environment: VQE +27.1% ⭐
+- 🔗 QNS_Mathematical_Formalization.md reference links added
 
 **Major Changes (v2.2):**
 

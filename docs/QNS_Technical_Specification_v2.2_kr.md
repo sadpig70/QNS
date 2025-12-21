@@ -127,18 +127,72 @@ QNS의 "노이즈 공생"은 다음을 의미합니다:
 
 ### 2.4 피델리티 추정 모델
 
-$$F_{circuit} \approx \prod_g (1 - \varepsilon_g) \times \exp\left(-\sum_g \frac{t_g}{T_1}\right) \times \exp\left(-\sum_g \frac{t_g}{T_\phi}\right) \times (1 - \varepsilon_{ro})^{n_m}$$
+#### 2.4.1 최적화 목표 함수
+
+$$
+C^* = \arg\max_{C' \in \mathcal{V}(C)} \hat{F}(C', \mathbf{n}(t))
+$$
+
+| 기호 | 정의 | 도메인 |
+|------|------|--------|
+| $C$ | 원본 양자 회로 | 게이트 시퀀스 |
+| $C^*$ | 최적화된 회로 | 게이트 시퀀스 |
+| $\mathcal{V}(C)$ | 수학적으로 동등한 회로 변종 집합 | $\|V\| \geq 1$ |
+| $\mathbf{n}(t)$ | 시간 의존적 노이즈 프로파일 벡터 | $\mathbb{R}^3$ |
+| $\hat{F}$ | 충실도 추정 함수 | $[0, 1]$ |
+
+#### 2.4.2 변종 집합 정의
+
+$$
+\mathcal{V}(C) = \{ C' : U_{C'} = U_C \}
+$$
+
+여기서 $U_C$는 유니터리 행렬 표현:
+
+$$
+U_C = \prod_{i=1}^{n} U_{g_i}
+$$
+
+**변환 규칙:**
+
+- 게이트 교환: $[g_i, g_j] = 0 \Rightarrow g_i g_j = g_j g_i$
+- 게이트 분해: $U_{CNOT} = (H \otimes I) \cdot CZ \cdot (H \otimes I)$
+- 게이트 합성: 다중 단일 큐비트 게이트 → 단일 $U3$ 게이트
+
+#### 2.4.3 노이즈 프로파일 벡터
+
+$$
+\mathbf{n}(t) = \begin{pmatrix} T_1(t) \\ T_2(t) \\ \boldsymbol{\epsilon}(t) \end{pmatrix}
+$$
+
+| 파라미터 | 설명 | 일반적 범위 |
+|----------|------|-------------|
+| $T_1$ | 완화 시간 | 50-100 μs |
+| $T_2$ | 위상 결맞음 시간 | 20-80 μs |
+| $\boldsymbol{\epsilon}$ | 게이트 에러 벡터 | $10^{-4} - 10^{-2}$ |
+
+#### 2.4.4 완전 충실도 모델
+
+$$
+\boxed{
+\hat{F}(C, \mathbf{n}) = (1 - \epsilon_{1q})^{n_{1q}} \cdot (1 - \epsilon_{2q})^{n_{2q}} \cdot \exp\left(-\frac{t_{total}}{T_2}\right)
+}
+$$
+
+**구성 요소:**
+
+1. **게이트 충실도**: $F_{gate}(C) = (1 - \epsilon_{1q})^{n_{1q}} \cdot (1 - \epsilon_{2q})^{n_{2q}}$
+2. **결맞음 충실도**: $F_{decoherence}(C, T_2) = \exp\left(-\frac{t_{total}}{T_2}\right)$
 
 여기서:
 
-- $\varepsilon_g$: 게이트 에러율 (1Q/2Q 구분)
-- $t_g$: 게이트 실행 시간
-- $T_1$: 에너지 완화 시간
-- $T_\phi$: 순수 위상 완화 시간
-- $\varepsilon_{ro}$: 읽기 에러율
-- $n_m$: 측정 큐비트 수
+- $\epsilon_{1q}$: 단일 큐비트 게이트 에러율
+- $\epsilon_{2q}$: 2-큐비트 게이트 에러율
+- $n_{1q}$: 단일 큐비트 게이트 수
+- $n_{2q}$: 2-큐비트 게이트 수
+- $t_{total} = \sum_{g \in C} t_g + t_{idle}$: 총 회로 실행 시간
 
-> **주의:** 이 모델은 **상대적 비교용 휴리스틱**입니다.
+> **📘 상세 수학적 형식화:** [QNS_Mathematical_Formalization.md](QNS_Mathematical_Formalization.md) 참조
 
 ---
 
@@ -403,14 +457,27 @@ Cost = α × distance + β × (1 - edge_fidelity)
 | Aer Noisy | 2q, Bell state, 1024 shots | ~100 ms | mock calibration |
 | Aer IBM | 2q, Bell state, 1024 shots | ~150 ms | ibm_fez calibration |
 
-### 6.4 🆕 피델리티 비교
+### 6.4 🆕 arXiv 벤치마크 결과 (QNS vs Baseline)
 
-| 회로 | Aer Ideal | Aer Noisy | 차이 |
-|------|-----------|-----------|------|
-| Bell State (2q) | 0.501 | 0.493 | -1.6% |
-| GHZ State (3q) | 0.498 | 0.486 | -2.4% |
+#### Ideal 환경 (노이즈 없음)
 
-> 노이즈 시뮬레이션에서 예상대로 피델리티 감소 확인
+| 회로 | Baseline | QNS | 개선율 |
+|------|----------|-----|--------|
+| Bell | 1.0000 | 1.0000 | +0.0% |
+| GHZ-5 | 1.0000 | 0.9700 | -3.0% |
+| **VQE** | 0.4000 | **0.4576** | **+14.4%** |
+
+#### NISQ 환경 (노이즈 있음) ⭐
+
+| 회로 | Baseline | QNS | 개선율 |
+|------|----------|-----|--------|
+| Bell | 1.0000 | 1.0000 | +0.0% |
+| GHZ-5 | 0.9700 | 0.9700 | +0.0% |
+| **VQE** | 0.3600 | **0.4576** | **+27.1%** ✅ |
+
+> 📊 상세 결과: [QNS_Benchmark_Results.md](QNS_Benchmark_Results.md) 참조
+>
+> 📘 수학적 형식화: [QNS_Mathematical_Formalization.md](QNS_Mathematical_Formalization.md) 참조
 
 ### 6.5 스케일링
 
@@ -519,7 +586,20 @@ QNS는 MIT 라이선스로 제공됩니다.
 | v1.0 | 2025-11-27 | 초기 버전 |
 | v2.0 | 2025-11-27 | AI 평가 반영, 표현 수정 |
 | v2.1 | 2025-12-17 | 구현 상태 반영 (모든 모듈 완료), 라이선스 MIT 단일화 |
-| **v2.2** | **2025-12-20** | **Qiskit 통합 완료 (Sprint 1-4)** |
+| v2.2 | 2025-12-20 | Qiskit 통합 완료 (Sprint 1-4) |
+| **v2.3** | **2025-12-21** | **수학적 형식화 통합, arXiv 벤치마크 결과 추가** |
+
+**주요 변경 사항 (v2.3):**
+
+- 📘 섹션 2.4 피델리티 추정 모델 확장 (수학적 엄밀성 추가)
+  - 최적화 목표 함수: $C^* = \arg\max \hat{F}(C', \mathbf{n}(t))$
+  - 변종 집합 정의: $\mathcal{V}(C) = \{ C' : U_{C'} = U_C \}$
+  - 노이즈 프로파일 벡터: $\mathbf{n}(t) = (T_1, T_2, \epsilon)$
+  - 완전 충실도 모델 (박스 수식)
+- 📊 섹션 6.4 arXiv 벤치마크 결과 업데이트
+  - Ideal 환경: VQE +14.4%
+  - NISQ 환경: VQE +27.1% ⭐
+- 🔗 QNS_Mathematical_Formalization.md 참조 링크 추가
 
 **주요 변경 사항 (v2.2):**
 
