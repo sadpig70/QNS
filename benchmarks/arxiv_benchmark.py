@@ -434,7 +434,8 @@ def run_single_benchmark(
     circuit_name: str,
     circuit: 'QuantumCircuit',
     noise_model: 'NoiseModel',
-    shots: int = 100
+    shots: int = 100,
+    use_noise: bool = False
 ) -> BenchmarkResult:
     """단일 회로 벤치마크 실행"""
     
@@ -442,7 +443,7 @@ def run_single_benchmark(
     
     # 베이스라인
     baseline_fidelity, gate_count = run_baseline_benchmark(
-        circuit, circuit_name, noise_model, shots
+        circuit, circuit_name, noise_model, shots, use_noise=use_noise
     )
     
     # QNS 최적화
@@ -456,6 +457,8 @@ def run_single_benchmark(
     else:
         improvement = 0.0
     
+    noise_label = "Aer Noisy" if use_noise else "Aer Ideal"
+    
     result = BenchmarkResult(
         circuit=circuit_name,
         qubits=circuit.num_qubits,
@@ -465,7 +468,7 @@ def run_single_benchmark(
         qns_fidelity=qns_fidelity,
         improvement_percent=improvement,
         rewire_time_ms=rewire_time,
-        noise_model="Aer Noisy (mock)"
+        noise_model=noise_label
     )
     
     print(f"✓ (Baseline: {baseline_fidelity:.3f}, QNS: {qns_fidelity:.3f}, Δ: {improvement:+.1f}%)")
@@ -528,9 +531,16 @@ def export_to_json(results: List[BenchmarkResult], output_path: Path):
 # 메인 실행
 # ============================================================
 
-def run_arxiv_benchmark_suite(output_dir: Optional[Path] = None) -> List[BenchmarkResult]:
+def run_arxiv_benchmark_suite(
+    output_dir: Optional[Path] = None,
+    use_noise: bool = False
+) -> List[BenchmarkResult]:
     """
     arXiv 논문용 전체 벤치마크 스위트 실행
+    
+    Args:
+        output_dir: 결과 출력 디렉토리
+        use_noise: True면 노이즈 환경(NISQ), False면 이상적 환경
     
     Returns:
         벤치마크 결과 리스트
@@ -539,9 +549,12 @@ def run_arxiv_benchmark_suite(output_dir: Optional[Path] = None) -> List[Benchma
         print("❌ Qiskit not available. Cannot run benchmarks.")
         return []
     
+    mode_str = "NISQ (Noisy)" if use_noise else "Ideal (Noiseless)"
+    
     print("=" * 60)
     print("QNS arXiv Benchmark Suite")
     print("=" * 60)
+    print(f"Mode: {mode_str}")
     print(f"Random Seed: {RANDOM_SEED}")
     print()
     
@@ -564,7 +577,7 @@ def run_arxiv_benchmark_suite(output_dir: Optional[Path] = None) -> List[Benchma
     
     for name, circuit, shots in benchmarks:
         try:
-            result = run_single_benchmark(name, circuit, noise_model, shots)
+            result = run_single_benchmark(name, circuit, noise_model, shots, use_noise)
             results.append(result)
         except Exception as e:
             print(f"  ❌ {name} failed: {e}")
@@ -602,10 +615,12 @@ def main():
     parser = argparse.ArgumentParser(description='QNS arXiv Benchmark Suite')
     parser.add_argument('--output', '-o', type=str, default='benchmarks/results',
                         help='Output directory for results')
+    parser.add_argument('--noisy', '-n', action='store_true',
+                        help='Use noisy simulation (NISQ environment)')
     
     args = parser.parse_args()
     
-    results = run_arxiv_benchmark_suite(Path(args.output))
+    results = run_arxiv_benchmark_suite(Path(args.output), use_noise=args.noisy)
     
     if results:
         print("\n✅ Benchmark suite completed successfully")

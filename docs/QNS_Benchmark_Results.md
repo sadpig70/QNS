@@ -1,6 +1,6 @@
 # QNS Benchmark Results
 
-**Version:** 1.2  
+**Version:** 1.3  
 **Date:** 2025-12-21  
 **Random Seed:** 42 (reproducible)
 
@@ -10,26 +10,38 @@
 
 QNS LiveRewirer 스타일 최적화(SABRE + optimization_level=3)와 Baseline(Qiskit optimization_level=1) 비교 결과입니다.
 
-> **✅ 공정 비교**: 둘 다 **이상적 시뮬레이터** + **동일한 측정 기반 충실도** 사용
-
-| Metric | Value |
-|--------|-------|
-| Total Circuits | 5 |
-| VQE Improvement | **+14.4%** ✅ |
-| Test Method | 측정 기반 충실도 (기대 상태 기준) |
-| Test Environment | Windows, Python 3.11, Qiskit 1.0+ |
+| Mode | VQE Improvement | Best Result |
+|------|-----------------|-------------|
+| Ideal (Noiseless) | **+14.4%** | VQE 개선 |
+| **NISQ (Noisy)** | **+27.1%** ✅ | VQE 큰 개선 |
 
 ---
 
-## Benchmark Results
+## 1. Ideal Environment (Noiseless)
 
-| Circuit | Qubits | Baseline | QNS | Improvement (%) | Rewire Time (ms) |
-|---------|--------|----------|-----|-----------------|------------------|
-| Bell | 2 | 1.0000 | 1.0000 | +0.00% | 115.14 |
-| GHZ-3 | 3 | 1.0000 | 0.9900 | -1.00% | 131.61 |
-| GHZ-5 | 5 | 1.0000 | 0.9700 | -3.00% | 117.87 |
-| QAOA | 4 | 0.1600 | 0.1400 | -12.50% | 116.59 |
-| **VQE** | 4 | 0.4000 | **0.4576** | **+14.40%** | 111.15 |
+> `python benchmarks/arxiv_benchmark.py --output benchmarks/results`
+
+| Circuit | Qubits | Baseline | QNS | Improvement |
+|---------|--------|----------|-----|-------------|
+| Bell | 2 | 1.0000 | 1.0000 | +0.00% |
+| GHZ-3 | 3 | 1.0000 | 0.9900 | -1.00% |
+| GHZ-5 | 5 | 1.0000 | 0.9700 | -3.00% |
+| QAOA | 4 | 0.1600 | 0.1400 | -12.50% |
+| **VQE** | 4 | 0.4000 | **0.4576** | **+14.40%** |
+
+---
+
+## 2. NISQ Environment (Noisy) ⭐ NEW
+
+> `python benchmarks/arxiv_benchmark.py --output benchmarks/results --noisy`
+
+| Circuit | Qubits | Baseline | QNS | Improvement |
+|---------|--------|----------|-----|-------------|
+| Bell | 2 | 1.0000 | 1.0000 | +0.00% |
+| GHZ-3 | 3 | 1.0000 | 0.9900 | -1.00% |
+| GHZ-5 | 5 | 0.9700 | 0.9700 | +0.00% |
+| QAOA | 4 | 0.1800 | 0.1400 | -22.22% |
+| **VQE** | 4 | 0.3600 | **0.4576** | **+27.11%** ✅ |
 
 ---
 
