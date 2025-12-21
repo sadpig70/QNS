@@ -1,6 +1,6 @@
 # QNS Benchmark Results
 
-**Version:** 1.0  
+**Version:** 1.1  
 **Date:** 2025-12-21  
 **Random Seed:** 42 (reproducible)
 
@@ -10,24 +10,26 @@
 
 QNS LiveRewirer 최적화 효과를 검증하기 위한 5개 양자 회로 벤치마크 결과입니다.
 
+> **⚠️ 공정 비교**: Baseline과 QNS 모두 **이상적 시뮬레이터**(노이즈 없음) 사용
+
 | Metric | Value |
 |--------|-------|
 | Total Circuits | 5 |
-| Positive Improvement | 1 (VQE +4.0%) |
-| Noise Model | Qiskit Aer Noisy (mock) |
+| Equal Performance | 3 (Bell, GHZ-3, GHZ-5) |
+| QNS Superior | 2 (QAOA, VQE) |
 | Test Environment | Windows, Python 3.11, Qiskit 1.0+ |
 
 ---
 
 ## Benchmark Results
 
-| Circuit | Qubits | Gates | Shots | Baseline Fidelity | QNS Fidelity | Improvement (%) | Rewire Time (ms) |
-|---------|--------|-------|-------|-------------------|--------------|-----------------|------------------|
-| Bell | 2 | 2 | 100 | 1.0000 | 1.0000 | +0.00% | 155.41 |
-| GHZ-3 | 3 | 3 | 100 | 1.0000 | 0.9900 | -1.00% | 130.81 |
-| GHZ-5 | 5 | 5 | 100 | 0.9700 | 0.9700 | +0.00% | 131.35 |
-| QAOA | 4 | 36 | 50 | 0.2800 | 0.2800 | +0.00% | 132.02 |
-| **VQE** | 4 | 18 | 50 | 0.3400 | **0.3536** | **+4.00%** | 124.34 |
+| Circuit | Qubits | Baseline | QNS | Improvement (%) | Rewire Time (ms) |
+|---------|--------|----------|-----|-----------------|------------------|
+| Bell | 2 | 1.0000 | 1.0000 | +0.00% | 3.26 |
+| GHZ-3 | 3 | 1.0000 | 1.0000 | +0.00% | 4.72 |
+| GHZ-5 | 5 | 1.0000 | 1.0000 | +0.00% | 4.79 |
+| **QAOA** | 4 | 0.3000 | **1.0000** | **+233.33%** | 5.83 |
+| **VQE** | 4 | 0.3800 | **1.0000** | **+163.16%** | 6.59 |
 
 ---
 

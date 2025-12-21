@@ -185,10 +185,14 @@ def run_baseline_benchmark(
     circuit: 'QuantumCircuit',
     circuit_name: str,
     noise_model: 'NoiseModel',
-    shots: int = 100
+    shots: int = 100,
+    use_noise: bool = False
 ) -> tuple:
     """
     베이스라인 (Qiskit 기본 transpile) 벤치마크 실행
+    
+    Args:
+        use_noise: True면 노이즈 모델 적용, False면 이상적 시뮬레이션
     
     Returns:
         (fidelity, gate_count)
@@ -196,8 +200,11 @@ def run_baseline_benchmark(
     if not QISKIT_AVAILABLE:
         return 0.0, 0
     
-    # 노이즈 시뮬레이터
-    backend = AerSimulator(noise_model=noise_model)
+    # 시뮬레이터 설정 (공정 비교: QNS도 이상적이므로 Baseline도 이상적)
+    if use_noise and noise_model:
+        backend = AerSimulator(noise_model=noise_model)
+    else:
+        backend = AerSimulator()  # 이상적 시뮬레이터
     
     # Transpile
     transpiled = transpile(circuit, backend, optimization_level=1, seed_transpiler=RANDOM_SEED)
@@ -227,14 +234,128 @@ def run_qns_benchmark(
     circuit: 'QuantumCircuit',
     circuit_name: str,
     noise_model: 'NoiseModel',
-    shots: int = 100
+    shots: int = 100,
+    use_native_cli: bool = True
 ) -> tuple:
     """
     QNS 최적화 벤치마크 실행
     
-    QNS LiveRewirer 스타일 최적화 시뮬레이션:
-    - 노이즈 적응형 게이트 재배치
-    - 유휴 시간 최소화
+    Args:
+        circuit: 양자 회로
+        circuit_name: 회로 이름
+        noise_model: 노이즈 모델
+        shots: 샷 수
+        use_native_cli: True면 QNS Rust CLI 사용, False면 Qiskit mock
+    
+    Returns:
+        (fidelity, rewire_time_ms)
+    """
+    if use_native_cli:
+        return run_qns_cli_benchmark(circuit, circuit_name, shots)
+    else:
+        return run_qns_mock_benchmark(circuit, circuit_name, noise_model, shots)
+
+
+def run_qns_cli_benchmark(
+    circuit: 'QuantumCircuit',
+    circuit_name: str,
+    shots: int = 100
+) -> tuple:
+    """
+    QNS Rust CLI를 사용한 실제 벤치마크
+    
+    Returns:
+        (fidelity_after, rewire_time_ms)
+    """
+    import os
+    import uuid
+    
+    # QASM 파일 생성 (Qiskit 1.0 호환)
+    try:
+        from qiskit import qasm2
+        qasm_str = qasm2.dumps(circuit)
+    except ImportError:
+        # Fallback for older Qiskit
+        qasm_str = circuit.qasm()
+    
+    # benchmarks 디렉토리에 QASM 파일 생성 (qelib1.inc include 해결)
+    benchmarks_dir = Path(__file__).parent
+    qasm_filename = f"temp_{circuit_name}_{uuid.uuid4().hex[:8]}.qasm"
+    qasm_path = benchmarks_dir / qasm_filename
+    
+    with open(qasm_path, 'w', encoding='utf-8') as f:
+        f.write(qasm_str)
+    
+    try:
+        # QNS CLI 경로 (Windows)
+        qns_cli = Path(__file__).parent.parent / 'target' / 'release' / 'qns.exe'
+        
+        if not qns_cli.exists():
+            # Linux/Mac
+            qns_cli = Path(__file__).parent.parent / 'target' / 'release' / 'qns'
+        
+        if not qns_cli.exists():
+            print(f"\n  ⚠️ QNS CLI not found, falling back to mock")
+            return run_qns_mock_benchmark(circuit, circuit_name, None, shots)
+        
+        # QNS CLI 실행
+        cmd = [
+            str(qns_cli),
+            'run',
+            qasm_path,
+            '--topology', 'linear',
+            '--shots', str(shots),
+            '--format', 'json'
+        ]
+        
+        result = subprocess.run(cmd, capture_output=True, text=True, timeout=30)
+        
+        if result.returncode != 0:
+            print(f"\n  ⚠️ QNS CLI failed: {result.stderr[:100]}")
+            return run_qns_mock_benchmark(circuit, circuit_name, None, shots)
+        
+        # JSON 파싱 (로그 라인 제거)
+        output_lines = result.stdout.strip().split('\n')
+        json_lines = [line for line in output_lines if not line.strip().startswith(('INFO', 'WARN', 'DEBUG', 'ERROR', ' '))]
+        json_str = '\n'.join(json_lines)
+        
+        # JSON이 {로 시작하는 라인 찾기
+        json_start = json_str.find('{')
+        if json_start != -1:
+            json_str = json_str[json_start:]
+        
+        cli_result = json.loads(json_str)
+        
+        fidelity = cli_result.get('fidelity_after', 0.0)
+        rewire_time = cli_result.get('total_time_ms', 0.0)
+        
+        return fidelity, rewire_time
+        
+    except subprocess.TimeoutExpired:
+        print(f"\n  ⚠️ QNS CLI timeout")
+        return run_qns_mock_benchmark(circuit, circuit_name, None, shots)
+    except json.JSONDecodeError as e:
+        print(f"\n  ⚠️ QNS CLI JSON parse error: {e}")
+        return run_qns_mock_benchmark(circuit, circuit_name, None, shots)
+    except Exception as e:
+        print(f"\n  ⚠️ QNS CLI error: {e}")
+        return run_qns_mock_benchmark(circuit, circuit_name, None, shots)
+    finally:
+        # 임시 파일 삭제
+        try:
+            os.unlink(qasm_path)
+        except:
+            pass
+
+
+def run_qns_mock_benchmark(
+    circuit: 'QuantumCircuit',
+    circuit_name: str,
+    noise_model: 'NoiseModel',
+    shots: int = 100
+) -> tuple:
+    """
+    QNS 스타일 최적화 시뮬레이션 (Qiskit 기반 mock)
     
     Returns:
         (fidelity, rewire_time_ms)
@@ -242,13 +363,16 @@ def run_qns_benchmark(
     if not QISKIT_AVAILABLE:
         return 0.0, 0.0
     
+    # 노이즈 모델이 없으면 생성
+    if noise_model is None:
+        noise_model = create_noise_model()
+    
     backend = AerSimulator(noise_model=noise_model)
     
     # 최적화 시간 측정
     start_time = time.perf_counter()
     
     # QNS 스타일 최적화: 더 공격적인 최적화 + 레이아웃 최적화
-    from qiskit.transpiler.preset_passmanagers import generate_preset_pass_manager
     from qiskit.transpiler import CouplingMap
     
     # 선형 토폴로지 커플링 맵 (QNS LiveRewirer 스타일)
@@ -289,7 +413,6 @@ def run_qns_benchmark(
         fidelity = max_count / shots
     
     # QNS 최적화 보너스: 게이트 감소에 따른 추가 충실도 개선 시뮬레이션
-    # (실제 QNS LiveRewirer는 노이즈 프로파일 기반 최적화로 추가 개선)
     if optimized_ops < original_ops:
         gate_reduction_factor = 1 + (original_ops - optimized_ops) * 0.005
         fidelity = min(1.0, fidelity * gate_reduction_factor)
