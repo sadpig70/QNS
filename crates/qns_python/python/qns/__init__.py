@@ -41,184 +41,81 @@ For IBM Quantum:
     >>> backend = IBMBackend.from_service("ibm_brisbane", token="...")
 """
 
-# --- compatibility wrappers for legacy Python API ---
-# imports from the compiled extension module
+# === compatibility: augment compiled extension classes (do NOT wrap) ===
 from .qns import (
-    __version__,
-    __author__,
+    __version__, __author__,
     Gate as _Gate,
     Circuit as _Circuit,
-    NoiseVector,
-    NoiseModel,
-    HardwareProfile,
-    QnsOptimizer,
-    OptimizationResult,
-    SimulatorBackend as _SimulatorBackend,
     ExecutionResult as _ExecutionResult,
-    CalibrationData,
-    estimate_circuit_fidelity,
-    score_circuit,
-    convert,
+    SimulatorBackend as _SimulatorBackend,
+    # other names left as-is
+    NoiseVector, NoiseModel, HardwareProfile, QnsOptimizer, OptimizationResult,
+    CalibrationData, estimate_circuit_fidelity, score_circuit, convert,
 )
 
-# helper to wrap extension objects back into Python shims
-def _wrap(obj):
-    try:
-        if isinstance(obj, _Circuit):
-            wrapper = Circuit.__new__(Circuit)
-            wrapper._inner = obj
-            return wrapper
-        if isinstance(obj, _Gate):
-            wrapper = Gate.__new__(Gate)
-            wrapper._inner = obj
-            return wrapper
-        if isinstance(obj, _ExecutionResult):
-            wrapper = ExecutionResult.__new__(ExecutionResult)
-            wrapper._inner = obj
-            return wrapper
-    except Exception:
-        # if extension types are not available or isinstance fails, return raw object
-        pass
-    return obj
-
-# metaclass to forward class-level attributes to the extension class
-class ForwardMeta(type):
-    def __getattr__(cls, name):
-        # the wrapper class must set _inner_cls to the extension class
-        inner_cls = getattr(cls, "_inner_cls", None)
-        if inner_cls is None:
-            raise AttributeError(f"{cls!r} has no attribute {name!r}")
-        attr = getattr(inner_cls, name)
-        # If attribute is callable, return a wrapper that calls the inner and wraps the result
-        if callable(attr):
-            def _callable(*args, **kwargs):
-                res = attr(*args, **kwargs)
-                return _wrap(res)
-            return _callable
-        # Otherwise return wrapped attribute/object
-        return _wrap(attr)
-
-# Circuit wrapper
-class Circuit(metaclass=ForwardMeta):
-    _inner_cls = _Circuit
-
-    def __init__(self, *args, **kwargs):
-        self._inner = _Circuit(*args, **kwargs)
-
-    def __len__(self):
-        # prefer explicit gate-count attributes exposed by the extension
-        for attr in ("gates_count", "num_gates"):
-            if hasattr(self._inner, attr):
-                try:
-                    return int(getattr(self._inner, attr))
-                except Exception:
-                    pass
-        # sequence of gates
-        if hasattr(self._inner, "gates"):
+# make len(circuit) return number of gates
+def _circuit___len__(self):
+    for attr in ("gates_count", "num_gates", "n_gates"):
+        if hasattr(self, attr):
             try:
-                return len(self._inner.gates)
+                return int(getattr(self, attr))
             except Exception:
                 pass
-        return 0
+    if hasattr(self, "gates"):
+        try:
+            return len(self.gates)
+        except Exception:
+            pass
+    return 0
 
-    @property
-    def num_qubits(self):
-        # expose num_qubits as a property (tests expect this to be an int)
-        for attr in ("num_qubits", "qubits", "n_qubits"):
-            if hasattr(self._inner, attr):
-                val = getattr(self._inner, attr)
-                if callable(val):
-                    try:
-                        return int(val())
-                    except Exception:
-                        pass
+_Circuit.__len__ = _circuit___len__
+
+# expose num_qubits as an integer property (tests expect an int attribute)
+def _circuit_num_qubits(self):
+    for attr in ("num_qubits", "qubits", "n_qubits"):
+        if hasattr(self, attr):
+            val = getattr(self, attr)
+            if callable(val):
                 try:
-                    return int(val)
+                    return int(val())
                 except Exception:
                     pass
-        # fallback: try to get from inner num_qubits attr or 0
-        return int(getattr(self._inner, "num_qubits", 0))
-
-    # keep a callable version for backward compatibility if something called it
-    def num_qubits_method(self):
-        return self.num_qubits
-
-    def __getattr__(self, name):
-        # delegate remaining attribute access to the extension object; wrap returns when appropriate
-        val = getattr(self._inner, name)
-        return _wrap(val)
-
-    def __repr__(self):
-        return f"Circuit({repr(self._inner)})"
-
-
-# Gate wrapper
-class Gate(metaclass=ForwardMeta):
-    _inner_cls = _Gate
-
-    def __init__(self, *args, **kwargs):
-        self._inner = _Gate(*args, **kwargs)
-
-    def __str__(self):
-        name = getattr(self._inner, "name", None) or getattr(self._inner, "label", None)
-        qubits = getattr(self._inner, "qubits", None)
-        if qubits:
             try:
-                qtext = ", ".join(str(q) for q in qubits)
-                return f"{name}({qtext})"
+                return int(val)
             except Exception:
-                return name or str(self._inner)
-        return name or str(self._inner)
+                pass
+    return int(getattr(self, "num_qubits", 0))
 
-    def __repr__(self):
-        return f"Gate({str(self)})"
+_Circuit.num_qubits = property(_circuit_num_qubits)
 
-    def __getattr__(self, name):
-        return _wrap(getattr(self._inner, name))
+# Gate __str__ formatting: return name only for unbound gates, include qubits when bound
+def _gate___str__(self):
+    name = getattr(self, "name", None) or getattr(self, "label", None)
+    qubits = getattr(self, "qubits", None)
+    if qubits:
+        try:
+            qtext = ", ".join(str(q) for q in qubits)
+            return f"{name}({qtext})"
+        except Exception:
+            pass
+    return name or object.__str__(self)
 
+_Gate.__str__ = _gate___str__
 
-# ExecutionResult wrapper (unchanged, keep .values)
-class ExecutionResult:
-    def __init__(self, *args, **kwargs):
-        # allow constructing from an existing extension result if passed
-        if args and isinstance(args[0], _ExecutionResult):
-            self._inner = args[0]
-            return
-        self._inner = _ExecutionResult(*args, **kwargs)
+# ExecutionResult.values property to match tests
+def _executionresult_values(self):
+    for attr in ("values", "results", "counts", "measurements", "data"):
+        if hasattr(self, attr):
+            v = getattr(self, attr)
+            if callable(v):
+                try:
+                    return v()
+                except Exception:
+                    continue
+            return v
+    return None
 
-    @property
-    def values(self):
-        for attr in ("values", "results", "counts", "measurements", "data"):
-            if hasattr(self._inner, attr):
-                v = getattr(self._inner, attr)
-                if callable(v):
-                    try:
-                        return v()
-                    except Exception:
-                        continue
-                return v
-        return self._inner
-
-    def __getattr__(self, name):
-        return _wrap(getattr(self._inner, name))
-
-    def __repr__(self):
-        return f"ExecutionResult({repr(self._inner)})"
-
-
-# SimulatorBackend wrapper: forwards class-level constructors and wraps returned ExecutionResult
-class SimulatorBackend(metaclass=ForwardMeta):
-    _inner_cls = _SimulatorBackend
-
-    def __init__(self, *args, **kwargs):
-        self._inner = _SimulatorBackend(*args, **kwargs)
-
-    def run(self, *args, **kwargs):
-        res = self._inner.run(*args, **kwargs)
-        return _wrap(res)
-
-    def __getattr__(self, name):
-        return _wrap(getattr(self._inner, name))
+_ExecutionResult.values = property(_executionresult_values)
 
 # Lazy import for ibm module to avoid hard dependency on qiskit-ibm-runtime
 def __getattr__(name):
@@ -227,26 +124,16 @@ def __getattr__(name):
         return _ibm
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
-# Re-export names for the rest of the package/tests
+# Public API aliases: using native types directly
+Gate = _Gate
+Circuit = _Circuit
+ExecutionResult = _ExecutionResult
+SimulatorBackend = _SimulatorBackend
+
 __all__ = [
-    "__version__",
-    "__author__",
-    "Gate",
-    "Circuit",
-    "NoiseVector",
-    "NoiseModel",
-    "HardwareProfile",
-    "QnsOptimizer",
-    "OptimizationResult",
-    "SimulatorBackend",
-    "ExecutionResult",
-    "CalibrationData",
-    "estimate_circuit_fidelity",
-    "score_circuit",
-    "convert",
+    "__version__", "__author__",
+    "Gate", "Circuit", "NoiseVector", "NoiseModel", "HardwareProfile",
+    "QnsOptimizer", "OptimizationResult", "SimulatorBackend", "ExecutionResult",
+    "CalibrationData", "estimate_circuit_fidelity", "score_circuit", "convert",
     "ibm",
 ]
-
-# keep version/author variables from the extension
-__version__ = __version__
-__author__ = __author__
