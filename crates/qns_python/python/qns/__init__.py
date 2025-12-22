@@ -70,23 +70,27 @@ def _circuit___len__(self):
 
 _Circuit.__len__ = _circuit___len__
 
-# expose num_qubits as an integer property (tests expect an int attribute)
-def _circuit_num_qubits(self):
+# NOTE: do NOT override an existing 'num_qubits' attribute on the compiled Circuit type.
+# Creating a property named 'num_qubits' causes getattr(self, "num_qubits") to re-enter the property.
+# Provide a module-level helper that reads the value without shadowing.
+def circuit_num_qubits_or_default(circuit):
     for attr in ("num_qubits", "qubits", "n_qubits"):
-        if hasattr(self, attr):
-            val = getattr(self, attr)
-            if callable(val):
-                try:
-                    return int(val())
-                except Exception:
-                    pass
+        try:
+            val = getattr(circuit, attr)
+        except Exception:
+            continue
+        # If the attribute is callable (older API), call it
+        if callable(val):
             try:
-                return int(val)
+                return int(val())
             except Exception:
-                pass
-    return int(getattr(self, "num_qubits", 0))
-
-_Circuit.num_qubits = property(_circuit_num_qubits)
+                continue
+        try:
+            return int(val)
+        except Exception:
+            continue
+    # fallback
+    return 0
 
 # Gate __str__ formatting: return name only for unbound gates, include qubits when bound
 def _gate___str__(self):
