@@ -69,6 +69,10 @@ enum Commands {
         /// Skip optimization (just parse and simulate)
         #[arg(long)]
         no_optimize: bool,
+
+        /// Weight for crosstalk-aware routing (0.0 = disabled, >0.0 = enabled)
+        #[arg(long, default_value = "0.0")]
+        crosstalk_weight: f64,
     },
 
     /// Benchmark the QNS pipeline
@@ -120,6 +124,7 @@ fn main() -> Result<()> {
             backend,
             ibm_backend,
             no_optimize,
+            crosstalk_weight,
         } => cmd_run(
             &input,
             &topology,
@@ -128,6 +133,7 @@ fn main() -> Result<()> {
             ibm_backend.as_deref(),
             no_optimize,
             cli.format,
+            crosstalk_weight,
         ),
         Commands::Benchmark {
             qubits,
@@ -140,6 +146,7 @@ fn main() -> Result<()> {
 }
 
 /// Run a QASM circuit through the pipeline
+#[allow(clippy::too_many_arguments)]
 fn cmd_run(
     input: &PathBuf,
     topology: &str,
@@ -148,6 +155,7 @@ fn cmd_run(
     ibm_backend: Option<&str>,
     no_optimize: bool,
     format: OutputFormat,
+    crosstalk_weight: f64,
 ) -> Result<()> {
     let start = Instant::now();
 
@@ -190,7 +198,20 @@ fn cmd_run(
     };
 
     // Create QNS system
-    let mut system = QnsSystem::new();
+    let mut config = qns_cli::pipeline::PipelineConfig::default();
+
+    // Configure crosstalk awareness
+    if crosstalk_weight > 0.0 {
+        config.rewirer.crosstalk_weight = crosstalk_weight;
+        config.rewirer.use_sabre = true;
+        config.rewirer.hardware_aware = true;
+        info!(
+            "Crosstalk-aware routing enabled (weight: {})",
+            crosstalk_weight
+        );
+    }
+
+    let mut system = QnsSystem::with_config(config);
     system.set_hardware(hardware);
 
     let result = if no_optimize {

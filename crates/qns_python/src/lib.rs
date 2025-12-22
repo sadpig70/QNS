@@ -206,7 +206,7 @@ impl PyCircuit {
     }
 
     fn __len__(&self) -> usize {
-        self.inner.num_qubits()
+        self.inner.num_qubits
     }
 
     fn __getitem__(&self, index: isize) -> PyResult<PyGate> {
@@ -585,6 +585,12 @@ impl PyHardwareProfile {
             .collect()
     }
 
+    fn set_crosstalk(&mut self, interactions: HashMap<(usize, usize), f64>) {
+        for ((q1, q2), strength) in interactions {
+            self.inner.crosstalk.set_interaction(q1, q2, strength);
+        }
+    }
+
     fn __repr__(&self) -> String {
         format!(
             "HardwareProfile({}, qubits={})",
@@ -647,17 +653,19 @@ pub struct PyQnsOptimizer {
     noise_vectors: Vec<CoreNoiseVector>,
     beam_width: usize,
     max_iterations: usize,
+    crosstalk_weight: f64,
 }
 
 #[pymethods]
 impl PyQnsOptimizer {
     #[new]
-    #[pyo3(signature = (num_qubits, noise_model=None, beam_width=10, max_iterations=50))]
+    #[pyo3(signature = (num_qubits, noise_model=None, beam_width=10, max_iterations=50, crosstalk_weight=0.5))]
     fn new(
         num_qubits: usize,
         noise_model: Option<&PyNoiseModel>,
         beam_width: usize,
         max_iterations: usize,
+        crosstalk_weight: f64,
     ) -> Self {
         let noise_vectors = if let Some(nm) = noise_model {
             (0..num_qubits)
@@ -682,6 +690,7 @@ impl PyQnsOptimizer {
             noise_vectors,
             beam_width,
             max_iterations,
+            crosstalk_weight,
         }
     }
 
@@ -723,7 +732,7 @@ impl PyQnsOptimizer {
         self.max_iterations = max_iterations;
     }
 
-    #[pyo3(signature = (circuit, use_beam_search=None))]
+    #[allow(unused_variables)]
     fn optimize(
         &self,
         circuit: &PyCircuit,
@@ -747,6 +756,7 @@ impl PyQnsOptimizer {
         let config = RewireConfig {
             beam_width: self.beam_width,
             max_variants: self.max_iterations,
+            crosstalk_weight: self.crosstalk_weight,
             ..Default::default()
         };
 

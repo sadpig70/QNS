@@ -23,6 +23,8 @@ pub struct NoiseAwareRouter {
     pub distance_weight: f64,
     /// Weight for edge fidelity component
     pub fidelity_weight: f64,
+    /// Weight for crosstalk penalty
+    pub crosstalk_weight: f64,
     /// Lookahead window for cost calculation
     pub lookahead: usize,
 }
@@ -32,6 +34,7 @@ impl Default for NoiseAwareRouter {
         Self {
             distance_weight: 1.0,
             fidelity_weight: 0.5,
+            crosstalk_weight: 0.5,
             lookahead: 5,
         }
     }
@@ -71,10 +74,11 @@ impl Ord for PathState {
 
 impl NoiseAwareRouter {
     /// Creates a new NoiseAwareRouter with custom weights.
-    pub fn new(distance_weight: f64, fidelity_weight: f64) -> Self {
+    pub fn new(distance_weight: f64, fidelity_weight: f64, crosstalk_weight: f64) -> Self {
         Self {
             distance_weight,
             fidelity_weight,
+            crosstalk_weight,
             lookahead: 5,
         }
     }
@@ -144,7 +148,7 @@ impl NoiseAwareRouter {
         None // No path found
     }
 
-    /// Calculates the routing cost considering both distance and fidelity.
+    /// Calculates the routing cost considering distance, fidelity, and crosstalk.
     fn calculate_routing_cost(
         &self,
         mapping: &[usize],
@@ -153,38 +157,70 @@ impl NoiseAwareRouter {
     ) -> f64 {
         let mut cost = 0.0;
         let limit = future_gates.len().min(self.lookahead);
+        let active_slice = &future_gates[0..limit];
 
-        for gate in future_gates.iter().take(limit) {
+        // 1. Collect all physical qubits involved in the window to check for crosstalk
+        // This is an approximation: we assume all gates in lookahead might overlap.
+        let mut active_physical_qubits = Vec::new();
+        for g in active_slice {
+            for q in g.qubits() {
+                active_physical_qubits.push(mapping[q]);
+            }
+        }
+
+        for gate in active_slice {
             match gate {
                 Gate::CNOT(c, t) | Gate::CZ(c, t) | Gate::SWAP(c, t) => {
                     let phys_c = mapping[*c];
                     let phys_t = mapping[*t];
 
+                    // Fidelity & Distance Cost
                     if hardware.are_connected(phys_c, phys_t) {
-                        // Direct connection: only edge fidelity cost
                         if let Some(coupler) = hardware.get_coupler(phys_c, phys_t) {
                             cost += self.fidelity_weight * coupler.gate_fidelity.error_rate();
                         }
-                    } else {
-                        // Need routing: estimate path cost
-                        if let Some(path) = self.find_fidelity_aware_path(phys_c, phys_t, hardware)
+                    } else if let Some(path) =
+                        self.find_fidelity_aware_path(phys_c, phys_t, hardware)
+                    {
+                        let swaps_needed = path.len().saturating_sub(2);
+                        cost += self.distance_weight * swaps_needed as f64;
+                        if let Some(coupler) =
+                            hardware.get_coupler(path[path.len() - 2], path[path.len() - 1])
                         {
-                            // Each edge in path contributes to cost
-                            let swaps_needed = path.len().saturating_sub(2);
-                            cost += self.distance_weight * swaps_needed as f64;
+                            cost += self.fidelity_weight * coupler.gate_fidelity.error_rate();
+                        }
+                    } else {
+                        cost += 100.0;
+                    }
 
-                            // Add fidelity cost for final edge
-                            if let Some(coupler) =
-                                hardware.get_coupler(path[path.len() - 2], path[path.len() - 1])
-                            {
-                                cost += self.fidelity_weight * coupler.gate_fidelity.error_rate();
+                    // Crosstalk Cost
+                    // Check if phys_c or phys_t interact with OTHER active qubits
+                    let crosstalk = &hardware.crosstalk;
+                    if !crosstalk.is_empty() {
+                        for &other_phys in &active_physical_qubits {
+                            // Don't count self-interaction or interaction with target counterpart
+                            if other_phys == phys_c || other_phys == phys_t {
+                                continue;
                             }
-                        } else {
-                            cost += 100.0; // Penalty for unreachable
+
+                            // Check C -> Other
+                            if let Some(&strength) = crosstalk
+                                .interactions
+                                .get(&(phys_c, other_phys).min((other_phys, phys_c)))
+                            {
+                                cost += self.crosstalk_weight * strength;
+                            }
+                            // Check T -> Other
+                            if let Some(&strength) = crosstalk
+                                .interactions
+                                .get(&(phys_t, other_phys).min((other_phys, phys_t)))
+                            {
+                                cost += self.crosstalk_weight * strength;
+                            }
                         }
                     }
                 },
-                _ => {}, // Single qubit gates have no routing cost
+                _ => {},
             }
         }
 
@@ -414,7 +450,7 @@ mod tests {
     #[test]
     fn test_fidelity_aware_path_finding() {
         let hw = create_hardware_with_varying_fidelity();
-        let router = NoiseAwareRouter::new(0.5, 1.0); // High fidelity weight
+        let router = NoiseAwareRouter::new(0.5, 1.0, 0.5); // High fidelity weight
 
         // Path from 0 to 3 should prefer high-fidelity edges
         let path = router.find_fidelity_aware_path(0, 3, &hw);
@@ -430,7 +466,7 @@ mod tests {
         let hw = create_hardware_with_varying_fidelity();
 
         // With high fidelity weight, router should consider edge quality
-        let router_fidelity_aware = NoiseAwareRouter::new(1.0, 2.0);
+        let router_fidelity_aware = NoiseAwareRouter::new(1.0, 2.0, 0.5);
 
         let mut circuit = CircuitGenome::new(4);
         circuit.add_gate(Gate::CNOT(0, 1)).unwrap(); // Uses high-fidelity edge
@@ -442,7 +478,7 @@ mod tests {
     #[test]
     fn test_cost_calculation() {
         let hw = create_hardware_with_varying_fidelity();
-        let router = NoiseAwareRouter::new(1.0, 1.0);
+        let router = NoiseAwareRouter::new(1.0, 1.0, 0.5);
 
         let mapping: Vec<usize> = (0..4).collect();
         let gates = vec![Gate::CNOT(0, 1)];

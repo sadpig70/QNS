@@ -167,6 +167,9 @@ impl NoisySimulator {
             self.apply_depolarizing_error(gate.qubits(), error_rate);
         }
 
+        // 4. Apply crosstalk error (Phase 2)
+        self.apply_crosstalk_error(&gate.qubits());
+
         // Update elapsed time
         self.elapsed_time_ns += gate_time;
 
@@ -306,6 +309,43 @@ impl NoisySimulator {
         }
 
         self.inner.set_state(new_state).ok();
+    }
+
+    /// Applies crosstalk errors based on active qubits.
+    fn apply_crosstalk_error(&mut self, active_qubits: &[usize]) {
+        if let Some(crosstalk) = &self.noise.crosstalk {
+            if crosstalk.is_empty() {
+                return;
+            }
+
+            // Iterate over all defined interactions
+            let mut errors_to_apply = Vec::new();
+
+            for (&(q1, q2), &strength) in &crosstalk.interactions {
+                let spectator = if active_qubits.contains(&q1) && !active_qubits.contains(&q2) {
+                    Some(q2)
+                } else if active_qubits.contains(&q2) && !active_qubits.contains(&q1) {
+                    Some(q1)
+                } else {
+                    None
+                };
+
+                if let Some(target) = spectator {
+                    // Apply error with probability proportional to strength
+                    if strength > 0.0 {
+                        errors_to_apply.push((target, strength));
+                    }
+                }
+            }
+
+            // Apply collected errors
+            for (qubit, prob) in errors_to_apply {
+                if self.rng.gen::<f64>() < prob {
+                    self.apply_z_error(qubit);
+                    self.error_count += 1;
+                }
+            }
+        }
     }
 
     /// Executes a quantum circuit with noise.

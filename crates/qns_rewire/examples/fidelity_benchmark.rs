@@ -9,7 +9,7 @@
 //!   cargo run --release --example fidelity_benchmark -- --runs 100
 
 use qns_core::prelude::*;
-use qns_rewire::{estimate_fidelity_with_idle_tracking, LiveRewirer, RewireConfig, ScoreConfig};
+use qns_rewire::{estimate_fidelity_with_hardware, LiveRewirer, RewireConfig, ScoreConfig};
 use std::time::Instant;
 
 /// Benchmark result for a single circuit
@@ -174,14 +174,34 @@ fn benchmark_circuit(
 ) -> BenchmarkResult {
     let score_config = ScoreConfig::default();
 
-    // Calculate original fidelity using idle-time aware scoring
-    let original_fidelity = estimate_fidelity_with_idle_tracking(circuit, noise, &score_config);
+    // Setup hardware with Crosstalk for the benchmark
+    let mut hardware = HardwareProfile::heavy_hex("benchmark_hw", 3, 5); // Adequate size
+                                                                         // Inject strong crosstalk between neighbors (simulating frequency collision)
+                                                                         // E.g., Qubit 0 strongly interacts with Qubit 1 and 2
+    hardware.crosstalk.set_interaction(0, 1, 0.05); // 5% error
+    hardware.crosstalk.set_interaction(1, 2, 0.05);
+    hardware.crosstalk.set_interaction(2, 3, 0.05);
+
+    // Calculate original fidelity using hardware-aware scoring (including crosstalk)
+    let original_fidelity =
+        estimate_fidelity_with_hardware(circuit, noise, &hardware, &score_config);
 
     // Run optimization
     let start = Instant::now();
     let mut rewirer = LiveRewirer::with_config(config.clone());
+    rewirer.set_hardware(hardware.clone()); // Enable hardware awareness
     rewirer.load(circuit.clone()).unwrap();
-    let result = rewirer.optimize(noise, config.max_variants).unwrap();
+
+    // Use optimize_with_hardware implicitly via set_hardware or explicit call?
+    // The optimize() method uses score_all_variants which uses estimate_fidelity_with_idle_tracking
+    // We should use optimize_with_hardware or ensure optimize() uses hardware if set.
+    // Looking at LiveRewirer, optimize() is basic. optimize_with_hardware() uses hardware.
+    // But optimize() doesn't seem to use set_hardware() field automatically in current impl.
+    // Let's call optimize_with_hardware directly.
+
+    let result = rewirer
+        .optimize_with_hardware(noise, &hardware, config.max_variants)
+        .unwrap();
     let optimization_time = start.elapsed().as_secs_f64() * 1000.0;
 
     let improvement = result.improvement;
@@ -225,6 +245,8 @@ fn run_benchmarks(num_runs: usize) -> Vec<BenchmarkResult> {
         beam_width: 20,
         beam_search_threshold: 50,
         parallel: true,
+        crosstalk_weight: 0.1, // Reduced from 1.5 to avoid routing explosion
+        use_sabre: true,       // Enable Sabre router for benchmark
     };
 
     let mut all_results = Vec::new();

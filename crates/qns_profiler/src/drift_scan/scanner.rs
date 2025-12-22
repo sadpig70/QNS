@@ -21,6 +21,7 @@
 //! ```
 
 use qns_core::prelude::*;
+use qns_core::types::CrosstalkMatrix;
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use super::compute::{calculate_drift_rate, detect_anomaly, ExponentialMovingAverage, Statistics};
@@ -447,6 +448,29 @@ impl DriftScanner {
         self.qubit_histories.clear();
         self.last_vector = None;
         self.scan_count = 0;
+    }
+
+    /// Performs a crosstalk scan (simulated).
+    ///
+    /// Generates a synthetic crosstalk matrix for testing and simulation.
+    /// In a real backend, this would parse `backend.properties()`.
+    pub fn scan_crosstalk(&self, num_qubits: usize) -> CrosstalkMatrix {
+        let mut matrix = CrosstalkMatrix::new();
+
+        // Simulate random crosstalk between adjacent qubits (linear chain assumed for simplicity if topology unknown)
+        // In a real scenario, we would use the HardwareProfile topology.
+        // Here we just add some random noise interactions.
+        for i in 0..num_qubits.saturating_sub(1) {
+            // Simulate 10% chance of high crosstalk, otherwise low
+            let strength = if (i * 7 + self.scan_count) % 10 == 0 {
+                0.05
+            } else {
+                0.001
+            };
+            matrix.set_interaction(i, i + 1, strength);
+        }
+
+        matrix
     }
 }
 

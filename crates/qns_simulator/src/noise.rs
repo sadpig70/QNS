@@ -52,6 +52,7 @@
 
 use qns_core::physics::{Matrix2x2, C64, ONE, PAULI_X, PAULI_Y, PAULI_Z, ZERO};
 use qns_core::prelude::*;
+use qns_core::types::CrosstalkMatrix;
 use rand::Rng;
 use std::collections::HashMap;
 
@@ -81,6 +82,8 @@ pub struct NoiseModel {
     pub gate_errors: bool,
     /// Whether to apply measurement errors
     pub measurement_errors: bool,
+    /// Crosstalk interaction matrix (optional)
+    pub crosstalk: Option<CrosstalkMatrix>,
 }
 
 impl NoiseModel {
@@ -100,6 +103,7 @@ impl NoiseModel {
             thermal_relaxation: true,
             gate_errors: true,
             measurement_errors: true,
+            crosstalk: None,
         }
     }
 
@@ -117,6 +121,7 @@ impl NoiseModel {
             thermal_relaxation: false,
             gate_errors: false,
             measurement_errors: false,
+            crosstalk: None,
         }
     }
 
@@ -155,6 +160,12 @@ impl NoiseModel {
     /// Enables or disables thermal relaxation.
     pub fn enable_thermal_relaxation(mut self, enabled: bool) -> Self {
         self.thermal_relaxation = enabled;
+        self
+    }
+
+    /// Sets the crosstalk matrix.
+    pub fn with_crosstalk(mut self, matrix: CrosstalkMatrix) -> Self {
+        self.crosstalk = Some(matrix);
         self
     }
 

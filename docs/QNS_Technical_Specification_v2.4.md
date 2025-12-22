@@ -2,7 +2,7 @@
 
 ## Technical Specification Document
 
-**Version 2.2 | December 2025**
+**Version 2.4 | December 2025**
 
 **Author:** Jung Wook Yang
 
@@ -14,13 +14,13 @@
 
 | Item | Status |
 |------|--------|
-| **Current Version** | v0.2.0 (Qiskit Integration Complete) |
-| **Verification Environment** | Local Simulator + IBM Quantum Aer |
-| **Hardware Integration** | ✅ IBM Aer Simulation Complete, Real QPU Ready |
-| **Benchmark Baseline** | StateVector + Qiskit Aer (noisy) |
-| **Overall Completion** | ~98% |
+| **Current Version** | v2.4.0 (Crosstalk-Aware Routing) |
+| **Verification Environment** | Local Simulator + IBM Quantum Aer + **IBM Heron (Real QPU)** |
+| **Hardware Integration** | ✅ IBM Aer Simulation + **IBM Torino (133 qubits) Execution** |
+| **Benchmark Baseline** | Qiskit Transpiler L3 + Sabre |
+| **Overall Completion** | 100% |
 
-> ⚠️ **Important:** All performance metrics in this document are based on **simulator environments**. IBM Aer noise simulation has been completed to reflect actual hardware characteristics.
+> ⚠️ **Important:** Performance metrics include both **simulation** (scalability) and **real hardware** (validation) results.
 
 ### Module Implementation Status
 
@@ -36,14 +36,22 @@
 | qns_tensor | ✅ Stable | MPS implementation |
 | qns_python | ✅ Stable | PyO3 bindings + **Qiskit Bridge** |
 
-### 🆕 v2.2 New Features
+### 🆕 v2.3 New Features
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| **Qiskit Bridge** | ✅ Complete | CircuitConverter, NoiseModelBuilder, AerSimulationRunner |
-| **IBM Calibration** | ✅ Complete | ibm_fez (156 qubits) integration verified |
-| **CLI Backend Selection** | ✅ Complete | simulator, aer-ideal, aer-noisy, aer-ibm |
+| **Hardware Execution** | ✅ Verified | IBM Heron (`ibm_torino`) execution success (Fidelity 0.85) |
+| **Scalability Bench** | ✅ Verified | QFT/Grover 5-15 qubits vs Qiskit L3 |
+| **Math Formalization** | ✅ Complete | Rigorous definition of fidelity estimates and optimization |
 | **Noise Model Integration** | ✅ Complete | T1/T2/Gate errors/Readout errors |
+
+### 🆕 v2.4 New Features
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| **Crosstalk Model** | ✅ Verified | Heuristic & Backend Property integration |
+| **Sabre Upgrade** | ✅ Complete | Weighted cost function ($D + E + X$) |
+| **Lookahead Check** | ✅ Complete | Spectator error penalty |
 
 ---
 
@@ -192,7 +200,9 @@ Where:
 - $n_{2q}$: Number of two-qubit gates
 - $t_{total} = \sum_{g \in C} t_g + t_{idle}$: Total circuit execution time
 
-> **📘 Detailed Mathematical Formalization:** See [QNS_Mathematical_Formalization.md](QNS_Mathematical_Formalization.md)
+> **Note:** The above formula represents a critical-path approximation. QNS implementation employs **Idle Time Tracking** for per-qubit coherence modeling.
+>
+> 📘 **Detailed Mathematical Formalization:** See [QNS_Mathematical_Formalization.md](QNS_Mathematical_Formalization.md) for the complete derivation including the idle time survival probability $S_q(t_{idle})$.
 
 ---
 
@@ -222,11 +232,11 @@ qns/
 └── .github/            # CI/CD
 ```
 
-### 3.2 Current Architecture (v2.2)
+### 3.2 Current Architecture (v2.3)
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
-│                    QNS Architecture v2.2                            │
+│                    QNS Architecture v2.3                            │
 ├─────────────────────────────────────────────────────────────────────┤
 │                                                                     │
 │  ┌─────────────┐    ┌─────────────┐    ┌─────────────┐             │
@@ -262,12 +272,13 @@ qns/
 │                           │                                        │
 │              ┌────────────┴────────────┐                           │
 │              │    IBM Quantum          │                           │
-│              │  ibm_fez (156 qubits)   │                           │
+│              │  ibm_torino (133q)      │                           │
+│              │  [✅ Verified]          │                           │
 │              └─────────────────────────┘                           │
 └─────────────────────────────────────────────────────────────────────┘
 ```
 
-### 3.3 Data Flow (v2.2)
+### 3.3 Data Flow (v2.3)
 
 ```
 Circuit Input → DriftScanner → NoiseVector → LiveRewirer → Optimized Circuit
@@ -294,7 +305,7 @@ Circuit Input → DriftScanner → NoiseVector → LiveRewirer → Optimized Cir
 
 ### 4.1 Integration Overview
 
-QNS v2.2 is fully integrated with the IBM Qiskit ecosystem, supporting real IBM Quantum hardware simulation.
+QNS v2.3 is fully integrated with the IBM Qiskit ecosystem, supporting real IBM Quantum hardware simulation.
 
 **Integration Strategy:** Simulation-First Validation → Hardware Execution
 
@@ -349,6 +360,7 @@ qns run circuit.qasm --backend aer-ibm --ibm-backend ibm_fez --shots 1024
 - ✅ Calibration data retrieval successful
 - ✅ NoiseModel creation successful (156-qubit)
 - ✅ Noisy simulation executed: Fidelity 0.493 (vs ideal 0.501)
+- 🆕 **Hardware Execution**: `ibm_torino` execution successful (Bell Fidelity 0.85)
 
 ### 4.5 PyO3 Qiskit Bridge Functions
 
@@ -457,9 +469,17 @@ Cost = α × distance + β × (1 - edge_fidelity)
 | Aer Noisy | 2q, Bell state, 1024 shots | ~100 ms | mock calibration |
 | Aer IBM | 2q, Bell state, 1024 shots | ~150 ms | ibm_fez calibration |
 
-### 6.4 🆕 arXiv Benchmark Results (QNS vs Baseline)
+### 6.4 🆕 arXiv Benchmark Results
 
-#### Ideal Environment (Noiseless)
+#### 6.4.1 Scalability: QNS vs Qiskit L3 (Gate Count)
+
+| Circuit | Qubits | Baseline Gates | QNS Gates | Reduction | Time (ms) |
+|---------|:------:|:--------------:|:---------:|:---------:|:---------:|
+| **QFT** | 10 | 252 | 240 | **4.8%** | 9.7 (QNS) vs 101 |
+| **QFT** | 15 | 591 | 547 | **7.5%** | 109 (QNS) vs 134 |
+| **Grover**| 10 | 1227 | 1091 | **11.1%**| 27 (QNS) vs 219 |
+
+#### 6.4.2 Ideal Environment (Noiseless)
 
 | Circuit | Baseline | QNS | Improvement |
 |---------|----------|-----|-------------|
@@ -467,7 +487,7 @@ Cost = α × distance + β × (1 - edge_fidelity)
 | GHZ-5 | 1.0000 | 0.9700 | -3.0% |
 | **VQE** | 0.4000 | **0.4576** | **+14.4%** |
 
-#### NISQ Environment (Noisy) ⭐
+#### 6.4.3 NISQ Environment (Noisy) ⭐
 
 | Circuit | Baseline | QNS | Improvement |
 |---------|----------|-----|-------------|
@@ -488,6 +508,33 @@ Cost = α × distance + β × (1 - edge_fidelity)
 | 15 | 32,768 | 512 KB | ~1.5 ms |
 | 20 | 1,048,576 | 16 MB | ~50 ms |
 | 25 | 33,554,432 | 512 MB | ~2 s |
+
+---
+
+## 5. Crosstalk Model v2.4
+
+QNS v2.4 integrates a sophisticated crosstalk-aware routing mechanism.
+
+### 5.1 Hardware Profile Expansion
+
+- **CrosstalkMatrix**: Stores interaction strengths $C_{ij}$ between physical qubits $i$ and $j$.
+- **Data Source**: Fetched from Qiskit backend properties (e.g. `zz_interaction`) or heuristically derived from topology.
+
+### 5.2 Sabre Router Upgrade
+
+The standard Sabre heuristic is expanded to a weighted cost function:
+$$ H(n) = W_{dist} \cdot D + W_{err} \cdot E + W_{xtalk} \cdot X $$
+
+- $D$: Sum of distances (classic Sabre).
+- $E$: Gate error penalty for chosen edges.
+- $X$: Crosstalk penalty for interactions between active edges in the front layer.
+
+### 5.3 CLI Integration
+
+- New Argument: `--crosstalk-weight <FLOAT>`
+- Behavior:
+  - If $> 0.0$, enables `SabreRouter` and sets the crosstalk weight.
+  - Typical range: $0.1 - 1.0$.
 
 ---
 
@@ -516,16 +563,16 @@ Cost = α × distance + β × (1 - edge_fidelity)
 - ✅ PyO3 Qiskit Functions (3 exported functions)
 - ✅ Clean build state (193 tests, 0 warnings)
 
-### 7.3 v1.0.0 (Next Target) - Hardware Verification
+### 7.3 v1.0.0 (Latest) - Hardware Verification ✅
 
-- 📋 IBM Runtime real QPU job submission
-- 📋 Queue monitoring and result retrieval
-- 📋 QNS vs. Qiskit Transpiler statistical comparison
-- 📋 5+ circuit benchmarks (Bell, GHZ, QFT, VQE, etc.)
+- ✅ IBM Runtime real QPU job submission (`ibm_torino` verified)
+- ✅ Queue monitoring and result retrieval
+- ✅ QNS vs. Qiskit Transpiler statistical comparison (Scalability)
+- ✅ 5+ circuit benchmarks (Bell, GHZ, QFT, VQE, etc.)
 
 ### 7.4 v2.0.0 (Long-term) - Extension
 
-- 📋 Crosstalk model
+- ✅ Crosstalk model
 - 📋 ZNE (Zero-Noise Extrapolation) integration
 - 📋 Multi-backend support (IonQ, Rigetti)
 - 📋 Cloud service
@@ -557,7 +604,7 @@ Cost = α × distance + β × (1 - edge_fidelity)
 | qns_rewire | 60+ | 3+ | - | 63+ |
 | qns_simulator | 39+ | 5+ | - | 44+ |
 | qns_cli | 7+ | 2+ | 17+ | 26+ |
-| 🆕 qns_python (Qiskit) | 9+ | - | 3+ | 12+ |
+| qns_python (Qiskit) | 9+ | - | 3+ | 12+ |
 | **Total** | **190+** | **15+** | **20+** | **225+** |
 
 ### C. Qiskit Dependencies
@@ -587,19 +634,20 @@ Commercial use, modification, and distribution are permitted.
 | v2.0 | 2025-11-27 | AI evaluation reflected, expression corrections |
 | v2.1 | 2025-12-17 | Implementation status update (all modules complete), MIT license unification |
 | v2.2 | 2025-12-20 | Qiskit integration complete (Sprint 1-4) |
-| **v2.3** | **2025-12-21** | **Mathematical formalization integration, arXiv benchmark results added** |
+| **v2.3** | **2025-12-21** | **Mathematical formalization integration, Scalability benchmarks, Hardware validation** |
+| **v2.4** | **2025-12-22** | **Crosstalk model integration, Sabre router upgrade, CLI integration** |
 
 **Major Changes (v2.3):**
 
-- 📘 Section 2.4 Fidelity Estimation Model expanded (mathematical rigor added)
-  - Optimization objective function: $C^* = \arg\max \hat{F}(C', \mathbf{n}(t))$
-  - Variant set definition: $\mathcal{V}(C) = \{ C' : U_{C'} = U_C \}$
-  - Noise profile vector: $\mathbf{n}(t) = (T_1, T_2, \epsilon)$
-  - Complete fidelity model (boxed formula)
-- 📊 Section 6.4 arXiv benchmark results updated
-  - Ideal environment: VQE +14.4%
-  - NISQ environment: VQE +27.1% ⭐
-- 🔗 QNS_Mathematical_Formalization.md reference links added
+- ✅ **Hardware Execution Verified**: IBM Heron (`ibm_torino`) execution success (Fidelity 0.85).
+- 📊 **Scalability Benchmarks**: QFT/Grover demonstrated up to 11% gate reduction vs Qiskit L3.
+- 📘 **Mathematical Formalization**: Expanded fidelity models and optimization definitions.
+
+**Major Changes (v2.4):**
+
+- 🆕 **Crosstalk-Aware Routing**: Integrated crosstalk penalty into Sabre router.
+- 🆕 **LiveRewirer Upgrade**: Support for weighted cost functions.
+- 🆕 **CLI Integration**: Added `--crosstalk-weight` flag.
 
 **Major Changes (v2.2):**
 

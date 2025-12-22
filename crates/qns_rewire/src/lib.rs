@@ -1,7 +1,9 @@
 //! QNS Rewire - skeleton lib.rs
 //! NOTE: Replace contents with full implementation as in your spec.
 
+pub mod details;
 pub mod gate_reorder;
+pub mod graph;
 pub mod live_rewirer;
 pub mod router;
 pub mod scoring;

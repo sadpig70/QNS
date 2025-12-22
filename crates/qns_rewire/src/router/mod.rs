@@ -11,7 +11,9 @@ pub trait Router {
 pub mod basic;
 pub mod noise_aware;
 pub mod placement;
+pub mod sabre;
 
 pub use basic::BasicRouter;
 pub use noise_aware::NoiseAwareRouter;
 pub use placement::{PlacementOptimizer, PlacementResult};
+pub use sabre::SabreRouter;

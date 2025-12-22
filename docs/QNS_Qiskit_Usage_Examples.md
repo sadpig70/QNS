@@ -74,6 +74,18 @@ cx q[0], q[2];
 measure q -> c;
 ```
 
+### Crosstalk-Aware Optimization (v2.4)
+
+Enable the crosstalk-aware router by specifying a weight (default recommendation: 0.5):
+
+```bash
+# Enable crosstalk awareness with weight 0.5
+qns run examples/ghz_state.qasm --crosstalk-weight 0.5
+
+# Aggressive avoidance (weight 1.0)
+qns run examples/ghz_state.qasm --crosstalk-weight 1.0
+```
+
 ## Backend Comparison
 
 ### Ideal vs. Noisy Simulation

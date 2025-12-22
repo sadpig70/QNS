@@ -1,0 +1,18 @@
+[package]
+name = "qns-python"
+version = "0.1.0"
+edition = "2021"
+
+[lib]
+name = "qns"
+crate-type = ["cdylib"]
+
+[dependencies]
+pyo3 = { version = "0.20", features = ["extension-module"] }
+qns_core = { path = "../crates/qns_core" }
+qns_tensor = { path = "../crates/qns_tensor" }
+qns_qasm = { path = "../crates/qns_qasm" }
+qns_rewire = { path = "../crates/qns_rewire" }
+qns_noise = { path = "../crates/qns_noise" }
+
+[build-dependencies]

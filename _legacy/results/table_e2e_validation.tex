@@ -1,0 +1,27 @@
+\begin{table}[ht]
+\centering
+\caption{E2E Validation: Analytical vs Monte Carlo Simulation}
+\label{tab:e2e_validation}
+\begin{tabular}{llrrr}
+\toprule
+Test Case & Strategy & Analytical & Simulated & $\Delta$ \\
+\midrule
+\multirow{3}{*}{5 CNOTs (worst edge)}
+    & Identity       & 25.00\% & 33.00\% & 8.00\% \\
+    & Placement      & 95.00\% & 93.00\% & 2.00\% \\
+    & Co-optimization & 95.00\% & 94.00\% & 1.00\% \\
+\midrule
+\multirow{2}{*}{Bell State}
+    & Identity       & 98.82\% & 99.99\% & 1.17\% \\
+    & Placement      & 98.82\% & 99.99\% & 1.18\% \\
+\midrule
+\multirow{2}{*}{GHZ Chain}
+    & Identity       & 75.59\% & 64.00\% & 11.59\% \\
+    & Placement      & 75.59\% & 69.00\% & 6.59\% \\
+\bottomrule
+\end{tabular}
+\vspace{0.5em}
+
+\footnotesize
+\textit{Hardware: T1=100$\mu$s, T2=80$\mu$s, Edge errors: 1\% (0-1), 15\% (1-2), 5\% (2-3)}
+\end{table}

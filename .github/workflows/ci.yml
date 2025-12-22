@@ -132,6 +132,8 @@ jobs:
       - uses: Swatinem/rust-cache@v2
       - name: Run Rust benchmarks
         run: cargo bench --no-run
+      - name: Verify Crosstalk Tuning Script
+        run: cargo run --release --example crosstalk_tuning
       - name: Run Python benchmark suite
         run: |
           mkdir -p benchmark_results

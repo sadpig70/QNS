@@ -3,7 +3,7 @@
 
 use crate::gate_reorder::{GateReorder, ReorderConfig};
 use crate::router::placement::PlacementOptimizer;
-use crate::router::NoiseAwareRouter;
+use crate::router::{NoiseAwareRouter, SabreRouter};
 use crate::scoring::{
     estimate_fidelity_with_hardware, estimate_fidelity_with_idle_tracking, ScoreConfig,
 };
@@ -29,6 +29,10 @@ pub struct RewireConfig {
     pub beam_search_threshold: usize,
     /// Enable parallel evaluation
     pub parallel: bool,
+    /// Weight for crosstalk penalty in routing
+    pub crosstalk_weight: f64,
+    /// Use SABRE router instead of basic noise-aware router
+    pub use_sabre: bool,
 }
 
 impl Default for RewireConfig {
@@ -42,6 +46,8 @@ impl Default for RewireConfig {
             beam_width: 10,
             beam_search_threshold: 30,
             parallel: true,
+            crosstalk_weight: 0.5,
+            use_sabre: false,
         }
     }
 }
@@ -669,22 +675,32 @@ impl LiveRewirer {
         }
 
         // Calculate original fidelity with identity mapping and routing
-        let router = NoiseAwareRouter::default();
+        // Use configured weights for router
+        let router = NoiseAwareRouter::new(1.0, 0.5, self.config.crosstalk_weight);
         let identity_mapping: Vec<usize> = (0..circuit.num_qubits).collect();
 
         let identity_routed = router.route_with_mapping(circuit, hardware, &identity_mapping)?;
         let original_fidelity = self.score_circuit_with_hardware(&identity_routed, noise, hardware);
         let original_swaps = count_swaps(&identity_routed);
 
-        // Step 1: Optimize placement
-        let placement_optimizer = PlacementOptimizer::new(100, false);
-        let placement_result = placement_optimizer.optimize(circuit, hardware);
+        // Step 1 & 2: Routing Strategy Selection
+        let (routed_circuit, routed_mapping) = if self.config.use_sabre {
+            let sabre = SabreRouter::new(0.5, 0.001, 10, self.config.crosstalk_weight);
+            let (c, m) = sabre.route(circuit, hardware)?;
+            (c, m)
+        } else {
+            // Step 1: Optimize placement
+            let placement_optimizer = PlacementOptimizer::new(100, false);
+            let placement_result = placement_optimizer.optimize(circuit, hardware);
 
-        // Step 2: Route with optimized mapping
-        let routed_circuit =
-            router.route_with_mapping(circuit, hardware, &placement_result.mapping)?;
+            // Step 2: Route with optimized mapping
+            let routed_circuit =
+                router.route_with_mapping(circuit, hardware, &placement_result.mapping)?;
 
-        let _routed_swaps = count_swaps(&routed_circuit);
+            (routed_circuit, placement_result.mapping)
+        };
+
+        // Step 2.5: Calculate fidelity of routed circuit
         let routed_fidelity = self.score_circuit_with_hardware(&routed_circuit, noise, hardware);
 
         // Step 3: Generate reordering variants on the routed circuit
@@ -727,7 +743,7 @@ impl LiveRewirer {
                 (
                     best_circuit,
                     best_fidelity,
-                    placement_result.mapping,
+                    routed_mapping,
                     strat.to_string(),
                 )
             } else {

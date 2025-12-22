@@ -201,6 +201,7 @@ class QnsOptimizer:
         noise_model: Optional[NoiseModel] = None,
         beam_width: int = 10,
         max_iterations: int = 50,
+        crosstalk_weight: float = 0.5,
     ) -> None: ...
     
     @property

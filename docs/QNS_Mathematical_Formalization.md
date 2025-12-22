@@ -1,168 +1,154 @@
 # QNS Mathematical Formalization
 
-**Version:** 1.0  
-**Date:** 2025-12-21  
-**Purpose:** Formal mathematical definitions for LiveRewirer optimization
+**Version:** 1.0
+**Date:** 2025-12-21
+**Scope:** Formal definition of the fidelity estimation model and optimization algorithms used in the QNS framework.
 
 ---
 
-## 1. LiveRewirer Optimization Framework
+## 1. Fidelity Estimation Model
 
-### 1.1 Problem Definition
+The core of QNS is a lightweight, hardware-aware fidelity estimation function $\hat{F}(C, \mathbf{n})$ that maps a quantum circuit $C$ and a noise profile $\mathbf{n}$ to an estimated success probability.
 
-Given a quantum circuit $C$ with gate sequence $\{g_1, g_2, \ldots, g_n\}$ and a time-varying noise profile $\mathbf{n}(t)$, find the optimal circuit variant that maximizes expected fidelity.
+### 1.1 Objective Function
 
-### 1.2 Objective Function
-
-$$
-C^* = \arg\max_{C' \in \mathcal{V}(C)} \hat{F}(C', \mathbf{n}(t))
-$$
-
-**Where:**
-
-| Symbol | Definition | Domain |
-|--------|------------|--------|
-| $C$ | Original quantum circuit | Gate sequence |
-| $C^*$ | Optimized circuit | Gate sequence |
-| $\mathcal{V}(C)$ | Set of mathematically equivalent circuit variants | $\|V\| \geq 1$ |
-| $\mathbf{n}(t)$ | Time-dependent noise profile vector | $\mathbb{R}^3$ |
-| $\hat{F}$ | Fidelity estimation function | $[0, 1]$ |
-
-### 1.3 Variant Set Definition
-
-The variant set $\mathcal{V}(C)$ is constructed via:
+The goal of the QNS optimizer is to find a circuit variant $C^*$ from the set of mathematically equivalent circuits $\mathcal{V}(C)$ that maximizes the estimated fidelity:
 
 $$
-\mathcal{V}(C) = \{ C' : U_{C'} = U_C \}
-$$
-
-Where $U_C$ denotes the unitary matrix representation:
-
-$$
-U_C = \prod_{i=1}^{n} U_{g_i}
-$$
-
-**Transformation Rules:**
-
-- Gate commutation: $[g_i, g_j] = 0 \Rightarrow g_i g_j = g_j g_i$
-- Gate decomposition: $U_{CNOT} = (H \otimes I) \cdot CZ \cdot (H \otimes I)$
-- Gate synthesis: Multiple single-qubit gates → single $U3$ gate
-
----
-
-## 2. Noise Profile Vector
-
-### 2.1 Definition
-
-$$
-\mathbf{n}(t) = \begin{pmatrix} T_1(t) \\ T_2(t) \\ \boldsymbol{\epsilon}(t) \end{pmatrix}
-$$
-
-| Parameter | Description | Typical Range |
-|-----------|-------------|---------------|
-| $T_1$ | Relaxation time | 50-100 μs |
-| $T_2$ | Dephasing time | 20-80 μs |
-| $\boldsymbol{\epsilon}$ | Gate error vector | $10^{-4} - 10^{-2}$ |
-
-### 2.2 Gate Error Vector
-
-For a circuit with $m$ distinct gate types:
-
-$$
-\boldsymbol{\epsilon} = (\epsilon_{1q}, \epsilon_{2q}, \epsilon_{meas})
+C^* = \underset{C' \in \mathcal{V}(C)}{\operatorname{arg\,max}} \; \hat{F}(C', \mathbf{n}(t))
 $$
 
 Where:
 
-- $\epsilon_{1q}$: Single-qubit gate error rate
-- $\epsilon_{2q}$: Two-qubit gate error rate  
-- $\epsilon_{meas}$: Measurement error rate
+- $\mathcal{V}(C) = \{ C' \mid U_{C'} = U_C \}$ represents the set of circuits strictly equivalent to $C$ (same unitary).
+- $\mathbf{n}(t)$ represents the time-dependent noise profile of the target hardware.
+
+### 1.2 Noise Profile Vector
+
+The noise characteristics of the quantum processor are encapsulated in a vector $\mathbf{n}(t)$:
+
+$$
+\mathbf{n}(t) = \begin{pmatrix}
+T_1^{(q)} \\
+T_2^{(q)} \\
+\epsilon_{1q}^{(q)} \\
+\epsilon_{2q}^{(e)} \\
+\epsilon_{ro}^{(q)}
+\end{pmatrix}
+$$
+
+Where:
+
+- $T_1^{(q)}, T_2^{(q)}$: Energy relaxation and dephasing times for qubit $q$.
+- $\epsilon_{1q}^{(q)}$: Average single-qubit gate error rate for qubit $q$.
+- $\epsilon_{2q}^{(e)}$: Two-qubit gate error rate for edge $e = (q_i, q_j)$.
+- $\epsilon_{ro}^{(q)}$: Readout error rate for qubit $q$.
+
+**Physical Constraint Enforcement:**
+The model explicitly enforces the physical limit $T_2 \leq 2T_1$. If calibration data violates this (due to measurement noise), it is clamped:
+$$
+\hat{T}_2^{(q)} = \min(T_2^{(q)}, 2T_1^{(q)})
+$$
+
+### 1.3 Fidelity Formulation
+
+The total estimated fidelity is modeled as the product of "Survival Probability" (decoherence-free) and "Gate Success Probability":
+
+$$
+\hat{F}(C, \mathbf{n}) = P_{\text{survival}}(C, \mathbf{n}) \times P_{\text{gates}}(C, \mathbf{n})
+$$
+
+#### 1.3.1 Decoherence Model (Survival Probability)
+
+We model decoherence as a continuous decay process during the circuit's execution. QNS typically uses **Idle Time Tracking** for higher precision.
+
+For each qubit $q$, the survival probability $S_q$ is calculated based on its total accumulated idle time $t_{idle}^{(q)}$:
+
+$$
+S_q(t_{idle}^{(q)}) = \exp\left(-\frac{t_{idle}^{(q)}}{T_1^{(q)}}\right) \times \exp\left(-\frac{t_{idle}^{(q)}}{\hat{T}_2^{(q)}}\right)
+$$
+
+The total circuit survival probability is the product over all active qubits:
+$$
+P_{\text{survival}} = \prod_{q \in Q_{active}} S_q(t_{idle}^{(q)})
+$$
+
+#### 1.3.2 Gate Error Model
+
+The gate success probability is derived from discrete error events, assuming errors are independent:
+
+$$
+P_{\text{gates}} = 1 - \epsilon_{total}
+$$
+
+Where the total accumulated error $\epsilon_{total}$ is the sum of errors for all gates $g$ in the circuit:
+
+$$
+\epsilon_{total} = \sum_{g \in C} E(g)
+$$
+
+The error function $E(g)$ depends on the gate type and hardware profile:
+
+$$
+E(g) =
+\begin{cases}
+\epsilon_{1q}^{(q)} & \text{if } g \text{ is 1-qubit gate on } q \\
+\epsilon_{2q}^{(e)} & \text{if } g \text{ is 2-qubit gate on edge } e \\
+\epsilon_{ro}^{(q)} & \text{if } g \text{ is Measurement on } q
+\end{cases}
+$$
+
+**Penalty for Invalid Edges:**
+If a two-qubit gate targets an edge $e \notin E_{device}$ (hardware connectivity), a heavy penalty is applied to guide the optimizer away from invalid topologies:
+$$
+E(g_{invalid}) = \max(3 \cdot \bar{\epsilon}_{2q}, 0.15)
+$$
 
 ---
 
-## 3. Fidelity Estimation Model
+## 2. Optimization Algorithms
 
-### 3.1 Composite Fidelity Formula
+### 2.1 LiveRewirer (Search Strategy)
 
+The `LiveRewirer` employs a hybrid search strategy to traverse the space of equivalent circuits $\mathcal{V}(C)$.
+
+**State Space Generation:**
+States are generated by applying local commutation rules:
 $$
-\hat{F}(C, \mathbf{n}) = F_{gate}(C) \cdot F_{decoherence}(C, T_2)
+[A, B] = 0 \implies AB = BA
 $$
+For a circuit sequence $S = g_1, g_2, \dots, g_n$, a neighbor $S'$ is generated by swapping adjacent commuting gates $(g_i, g_{i+1})$.
 
-### 3.2 Gate Fidelity Component
+**Search Algorithm:**
+Let $N$ be the number of generated variants.
 
-$$
-F_{gate}(C) = \prod_{g \in C} (1 - \epsilon_g)
-$$
+- **Micro-scale ($N \leq 30$):** Breadth-First Search (BFS) to explore all immediate reorderings.
+- **Macro-scale ($N > 30$):** Beam Search with width $k=10$.
+  - Only the top-$k$ candidates with highest $\hat{F}$ scores are kept at each depth layer.
 
-For a circuit with $n_{1q}$ single-qubit gates and $n_{2q}$ two-qubit gates:
+### 2.2 Placement & Routing
 
-$$
-F_{gate}(C) = (1 - \epsilon_{1q})^{n_{1q}} \cdot (1 - \epsilon_{2q})^{n_{2q}}
-$$
+QNS solves the Qubit Mapping Problem (QMP) in two stages:
 
-### 3.3 Decoherence Fidelity Component
-
-$$
-F_{decoherence}(C, T_2) = \exp\left(-\frac{t_{total}}{T_2}\right)
-$$
-
-Where total circuit execution time:
-
-$$
-t_{total} = \sum_{g \in C} t_g + t_{idle}
-$$
-
-### 3.4 Complete Fidelity Model
+**Stage 1: Placement (Logical-to-Physical Mapping)**
+Find a bijection $\pi: Q_{log} \to Q_{phys}$ that maximizes the fidelity of the initial circuit mapping.
+State evaluation uses the hardware-aware scoring function:
 
 $$
-\boxed{
-\hat{F}(C, \mathbf{n}) = (1 - \epsilon_{1q})^{n_{1q}} \cdot (1 - \epsilon_{2q})^{n_{2q}} \cdot \exp\left(-\frac{t_{total}}{T_2}\right)
-}
+\text{Score}(\pi) = \sum_{g \in C_{2q}} (1 - \epsilon_{2q}^{(\pi(q_i), \pi(q_j))})
 $$
+
+**Stage 2: Noise-Aware Routing**
+If a gate requires an connection not present in the hardware, pathfinding is performed on the coupling graph $G=(V, E)$.
+Edge weights $w_{uv}$ are defined by their fidelity:
+$$
+w_{uv} = -\ln(1 - \epsilon_{2q}^{(u,v)}) \approx \epsilon_{2q}^{(u,v)}
+$$
+Dijkstra's algorithm finds the path minimizing total error, and SWAP gates are inserted along this path.
 
 ---
 
-## 4. Optimization Algorithm
+## 3. Implementation Notes
 
-### 4.1 LiveRewirer Search Strategy
-
-```text
-Algorithm: LiveRewirer Optimization
-Input: C (circuit), n (noise profile)
-Output: C* (optimized circuit)
-
-1. V ← GenerateVariants(C)
-2. F_max ← 0
-3. C* ← C
-4. for each C' in V:
-5.     F' ← EstimateFidelity(C', n)
-6.     if F' > F_max:
-7.         F_max ← F'
-8.         C* ← C'
-9. return C*
-```
-
-### 4.2 Improvement Metric
-
-$$
-\Delta F = \frac{\hat{F}(C^*, \mathbf{n}) - \hat{F}(C, \mathbf{n})}{\hat{F}(C, \mathbf{n})} \times 100\%
-$$
-
----
-
-## 5. Validation Criteria
-
-| Criterion | Requirement | Status |
-|-----------|-------------|--------|
-| Unitarity preservation | $U_{C^*} = U_C$ | ✓ |
-| Fidelity improvement | $\hat{F}(C^*) \geq \hat{F}(C)$ | ✓ |
-| Bounded search time | $O(\|V\|)$ polynomial | ✓ |
-| Noise model consistency | $\mathbf{n}$ measured at runtime | ✓ |
-
----
-
-## References
-
-1. Nielsen & Chuang, "Quantum Computation and Quantum Information"
-2. Preskill, "Quantum Computing in the NISQ era and beyond" (arXiv:1801.00862)
-3. Kandala et al., "Hardware-efficient variational quantum eigensolver" (Nature 2017)
+- **Latency:** The scoring function is $O(|G|)$ where $|G|$ is the number of gates. For typical NISQ circuits ($|G| < 1000$), evaluation takes microseconds.
+- **Parallelism:** Scoring of variants is embarrassingly parallel. The Rust implementation uses `Rayon` to score multiple variants concurrently on multi-core CPUs.

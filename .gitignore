@@ -1,6 +1,6 @@
 # Generated files
 /target/
-Cargo.lock
+# Cargo.lock
 
 # IDE
 .idea/
@@ -44,7 +44,8 @@ criterion/
 .env.local
 
 # Project specific
-_legacy/
+# _legacy/
+
 .agent/
 .claude/
 CLAUDE.md
@@ -65,3 +66,6 @@ venv/
 dist/
 build/
 
+
+# Secrets
+tqp-ibm-apikey.json

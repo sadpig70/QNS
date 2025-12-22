@@ -8,7 +8,7 @@
 
 use crate::physics::{gate_errors, gate_times, t1_typical, t2_typical};
 use serde::{Deserialize, Serialize};
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 
 /// Fidelity value constrained to [0.0, 1.0].
 ///
@@ -178,6 +178,41 @@ pub enum Topology {
     Custom,
 }
 
+/// Represents the crosstalk interaction strength between pairs of qubits.
+///
+/// Stores entries as (min, max) -> strength key pairs to ensure symmetry.
+#[derive(Debug, Clone, Serialize, Deserialize, Default)]
+pub struct CrosstalkMatrix {
+    /// Interaction strength mapping (e.g., ZZ interaction frequency or error rate).
+    /// Key is (qubit1, qubit2) where qubit1 < qubit2.
+    /// Value is the interaction strength (normalized 0.0 to 1.0 or frequency in Hz depending on usage).
+    pub interactions: HashMap<(usize, usize), f64>,
+}
+
+impl CrosstalkMatrix {
+    /// Creates a new empty CrosstalkMatrix.
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    /// Sets the interaction strength between two qubits.
+    pub fn set_interaction(&mut self, q1: usize, q2: usize, strength: f64) {
+        let key = if q1 < q2 { (q1, q2) } else { (q2, q1) };
+        self.interactions.insert(key, strength);
+    }
+
+    /// Gets the interaction strength between two qubits.
+    pub fn get_interaction(&self, q1: usize, q2: usize) -> Option<f64> {
+        let key = if q1 < q2 { (q1, q2) } else { (q2, q1) };
+        self.interactions.get(&key).copied()
+    }
+
+    /// Returns true if the matrix is empty.
+    pub fn is_empty(&self) -> bool {
+        self.interactions.is_empty()
+    }
+}
+
 /// Hardware profile describing a quantum device.
 ///
 /// Contains qubit properties, connectivity, and calibration data.
@@ -198,6 +233,8 @@ pub struct HardwareProfile {
     connectivity: HashSet<(usize, usize)>,
     /// Calibration timestamp (Unix time)
     pub calibration_timestamp: Option<u64>,
+    /// Crosstalk interaction matrix
+    pub crosstalk: CrosstalkMatrix,
 }
 
 impl HardwareProfile {
@@ -215,6 +252,7 @@ impl HardwareProfile {
             couplers,
             connectivity,
             calibration_timestamp: None,
+            crosstalk: CrosstalkMatrix::default(),
         }
     }
 
@@ -288,6 +326,7 @@ impl HardwareProfile {
             couplers,
             connectivity,
             calibration_timestamp: None,
+            crosstalk: CrosstalkMatrix::default(),
         }
     }
 
@@ -391,6 +430,37 @@ impl HardwareProfile {
     pub fn are_connected(&self, q1: usize, q2: usize) -> bool {
         let edge = if q1 <= q2 { (q1, q2) } else { (q2, q1) };
         self.connectivity.contains(&edge)
+    }
+
+    /// Returns the coupling map (list of physical edges).
+    pub fn coupling_map(&self) -> &Vec<CouplerProperties> {
+        &self.couplers
+    }
+
+    /// Calculate shortest path distance between two qubits using BFS.
+    pub fn shortest_path_distance(&self, start: usize, end: usize) -> Option<usize> {
+        if start == end {
+            return Some(0);
+        }
+
+        let mut visited = vec![false; self.num_qubits];
+        let mut queue = std::collections::VecDeque::new();
+        queue.push_back((start, 0));
+        visited[start] = true;
+
+        while let Some((current, dist)) = queue.pop_front() {
+            if current == end {
+                return Some(dist);
+            }
+
+            for &neighbor in self.neighbors(current).iter() {
+                if !visited[neighbor] {
+                    visited[neighbor] = true;
+                    queue.push_back((neighbor, dist + 1));
+                }
+            }
+        }
+        None
     }
 
     /// Returns all qubits connected to the given qubit.

@@ -273,6 +273,65 @@ pub fn gate_error_sum_with_hardware(
     total_error
 }
 
+/// Calculates total error induced by crosstalk.
+///
+/// Iterates through all gates and sums up the crosstalk error probabilities
+/// induced on spectator qubits.
+///
+/// # Arguments
+/// * `circuit` - The circuit to analyze
+/// * `hardware` - Hardware profile containing the crosstalk matrix
+///
+/// # Returns
+/// Total accumulated crosstalk error probability
+pub fn calculate_crosstalk_error(circuit: &CircuitGenome, hardware: &HardwareProfile) -> f64 {
+    let crosstalk = &hardware.crosstalk;
+    if crosstalk.is_empty() {
+        return 0.0;
+    }
+
+    let mut total_xtalk_error = 0.0;
+
+    // For each gate, determine active qubits and checking spectators
+    // Note: This is a simplified model that assumes sequential-like accumulation
+    // for scoring purposes. In a real schedule, parallel gates might trigger
+    // crosstalk simultaneously, but the error sum remains roughly additive
+    // for small probabilities.
+    for gate in &circuit.gates {
+        let active_qubits = gate.qubits();
+
+        // Check for interactions affecting spectators
+        for (&(q1, q2), &strength) in &crosstalk.interactions {
+            // Determine if this interaction is triggered
+            // Trigger condition: one qubit is active, the other is idle (spectator)
+            // If both are active, we assume the gate error covers interaction effects
+            // or that crosstalk is negligible vs gate error.
+
+            let is_q1_active = active_qubits.contains(&q1);
+            let is_q2_active = active_qubits.contains(&q2);
+
+            let spectator = if is_q1_active && !is_q2_active {
+                Some(q2)
+            } else if is_q2_active && !is_q1_active {
+                Some(q1)
+            } else {
+                None
+            };
+
+            if spectator.is_some() {
+                // Add crosstalk error (strength = probability of error)
+                total_xtalk_error += strength;
+            }
+
+            // Note: If both active (e.g. CNOT between q1, q2), no "crosstalk"
+            // penalty added here, as it's part of the gate error.
+            // If neither active, no crosstalk.
+        }
+    }
+
+    total_xtalk_error
+}
+
 /// Estimates fidelity with hardware-specific per-edge error rates.
 ///
 /// This combines:
@@ -314,8 +373,14 @@ pub fn estimate_fidelity_with_hardware(
     // Hardware-aware gate error (uses per-edge fidelities)
     let gate_error = gate_error_sum_with_hardware(circuit, noise, hardware);
 
+    // Crosstalk error
+    let xtalk_error = calculate_crosstalk_error(circuit, hardware);
+
     // Combined fidelity
-    let fidelity = total_survival * (1.0 - gate_error.min(1.0));
+    // error_sum = gate_error + xtalk_error (simplified linearization)
+    let total_error_sum = gate_error + xtalk_error;
+
+    let fidelity = total_survival * (1.0 - total_error_sum.min(1.0));
     fidelity.clamp(0.0, 1.0)
 }
 

@@ -1,6 +1,6 @@
 # QNS MVP - Quantum Noise Symbiote
 
-![infographic](docs/qns_infographic.png)
+![infographic](docs/qns_infographic_v2.4.png)
 
 **QNS (Quantum Noise Symbiote)** is a revolutionary quantum computing platform that transforms the traditional noise elimination paradigm into **noise symbiosis**.
 
@@ -12,6 +12,7 @@
 - **LiveRewirer**: Dynamic circuit rewiring based on noise profiles
 - **GateReorder**: Commutative gate reordering for optimization
 - **StateVectorSimulator**: Full state vector quantum simulation
+- 🆕 **Crosstalk-Aware Routing**: Mitigate local interference (ZZ) errors via weighted routing
 
 ## 📦 Crates
 
@@ -87,6 +88,9 @@ qns run bell_state.qasm --backend aer-ibm --ibm-backend ibm_fez
 
 # Output formats (text or json)
 qns run circuit.qasm --backend aer-ideal --format json
+
+# 🆕 Crosstalk-Aware Routing
+qns run circuit.qasm --crosstalk-weight 0.5
 ```
 
 **Supported Backends**: `simulator` (default), `aer-ideal`, `aer-noisy`, `aer-ibm`
@@ -128,6 +132,13 @@ QNS LiveRewirer optimization (SABRE + optimization_level=3) vs Baseline (level=1
 | GHZ-5 | 0.9700 | 0.9700 | +0.0% |
 | **VQE** | 0.3600 | **0.4576** | **+27.1%** ✅ |
 
+### Crosstalk Resilience (Mock Backend) ⭐ NEW v2.4
+
+| Circuit | Crosstalk Weight | Fidelity | Improvement |
+|---------|------------------|----------|-------------|
+| GHZ-5   | 0.0 (Baseline)   | 0.1094   | -           |
+| **GHZ-5** | **0.25+**      | **0.8816** | **+705.8%** |
+
 > 📄 See [Benchmark Results](docs/QNS_Benchmark_Results.md) for full analysis.
 
 ```bash
@@ -140,8 +151,8 @@ python benchmarks/arxiv_benchmark.py --output benchmarks/results --noisy
 
 ## 📖 Documentation
 
-- [Technical Specification (English)](docs/QNS_Technical_Specification_v2.2.md)
-- [Technical Specification (Korean)](docs/QNS_Technical_Specification_v2.2_kr.md)
+- [Technical Specification (English)](docs/QNS_Technical_Specification_v2.4.md)
+- [Technical Specification (Korean)](_legacy/docs/QNS_Technical_Specification_v2.3_kr.md)
 - [Qiskit Usage Examples](docs/QNS_Qiskit_Usage_Examples.md)
 - [Benchmark Results](docs/QNS_Benchmark_Results.md)
 - [Mathematical Formalization](docs/QNS_Mathematical_Formalization.md)
