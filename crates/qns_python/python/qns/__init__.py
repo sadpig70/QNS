@@ -61,129 +61,164 @@ from .qns import (
     convert,
 )
 
-# Circuit wrapper: ensures len(circuit) == number of gates and provides callable num_qubits()
-class Circuit:
+# helper to wrap extension objects back into Python shims
+def _wrap(obj):
+    try:
+        if isinstance(obj, _Circuit):
+            wrapper = Circuit.__new__(Circuit)
+            wrapper._inner = obj
+            return wrapper
+        if isinstance(obj, _Gate):
+            wrapper = Gate.__new__(Gate)
+            wrapper._inner = obj
+            return wrapper
+        if isinstance(obj, _ExecutionResult):
+            wrapper = ExecutionResult.__new__(ExecutionResult)
+            wrapper._inner = obj
+            return wrapper
+    except Exception:
+        # if extension types are not available or isinstance fails, return raw object
+        pass
+    return obj
+
+# metaclass to forward class-level attributes to the extension class
+class ForwardMeta(type):
+    def __getattr__(cls, name):
+        # the wrapper class must set _inner_cls to the extension class
+        inner_cls = getattr(cls, "_inner_cls", None)
+        if inner_cls is None:
+            raise AttributeError(f"{cls!r} has no attribute {name!r}")
+        attr = getattr(inner_cls, name)
+        # If attribute is callable, return a wrapper that calls the inner and wraps the result
+        if callable(attr):
+            def _callable(*args, **kwargs):
+                res = attr(*args, **kwargs)
+                return _wrap(res)
+            return _callable
+        # Otherwise return wrapped attribute/object
+        return _wrap(attr)
+
+# Circuit wrapper
+class Circuit(metaclass=ForwardMeta):
+    _inner_cls = _Circuit
+
     def __init__(self, *args, **kwargs):
-        # instantiate the underlying extension Circuit
         self._inner = _Circuit(*args, **kwargs)
 
-    # make len() return number of gates (compat with tests)
     def __len__(self):
-        # try common attributes used by the extension:
-        # - if extension exposes explicit gates_count / num_gates attribute, use it
-        if hasattr(self._inner, "gates_count"):
-            return int(self._inner.gates_count)
-        if hasattr(self._inner, "num_gates"):
-            return int(self._inner.num_gates)
-        # if extension exposes a sequence of gates
+        # prefer explicit gate-count attributes exposed by the extension
+        for attr in ("gates_count", "num_gates"):
+            if hasattr(self._inner, attr):
+                try:
+                    return int(getattr(self._inner, attr))
+                except Exception:
+                    pass
+        # sequence of gates
         if hasattr(self._inner, "gates"):
             try:
                 return len(self._inner.gates)
             except Exception:
                 pass
-        # fallback: 0
         return 0
 
-    # tests expect a callable num_qubits() in some places
+    @property
     def num_qubits(self):
-        # prefer explicit attribute names if present
+        # expose num_qubits as a property (tests expect this to be an int)
         for attr in ("num_qubits", "qubits", "n_qubits"):
             if hasattr(self._inner, attr):
                 val = getattr(self._inner, attr)
-                # if attribute is callable (previous API), call it
                 if callable(val):
-                    return val()
-                # else, return integer value
+                    try:
+                        return int(val())
+                    except Exception:
+                        pass
                 try:
                     return int(val)
                 except Exception:
                     pass
-        # last resort: try to infer from gates or 0
-        if hasattr(self._inner, "gates"):
-            try:
-                # assume gates keep max qubit index + 1 if stored; best-effort
-                return getattr(self._inner, "num_qubits", 0)
-            except Exception:
-                pass
-        return 0
+        # fallback: try to get from inner num_qubits attr or 0
+        return int(getattr(self._inner, "num_qubits", 0))
 
-    # delegate attribute access to the inner extension object
+    # keep a callable version for backward compatibility if something called it
+    def num_qubits_method(self):
+        return self.num_qubits
+
     def __getattr__(self, name):
-        return getattr(self._inner, name)
+        # delegate remaining attribute access to the extension object; wrap returns when appropriate
+        val = getattr(self._inner, name)
+        return _wrap(val)
 
     def __repr__(self):
         return f"Circuit({repr(self._inner)})"
 
-# Gate wrapper: string formatting compatibility with tests
-class Gate:
+
+# Gate wrapper
+class Gate(metaclass=ForwardMeta):
+    _inner_cls = _Gate
+
     def __init__(self, *args, **kwargs):
         self._inner = _Gate(*args, **kwargs)
 
     def __str__(self):
-        # prefer the extension-provided name
         name = getattr(self._inner, "name", None) or getattr(self._inner, "label", None)
-        # try to detect qubit operands (some Gate objects are defined with no bound qubits)
         qubits = getattr(self._inner, "qubits", None)
         if qubits:
             try:
-                # format as "NAME(q0, q1)" when bound to qubits
                 qtext = ", ".join(str(q) for q in qubits)
                 return f"{name}({qtext})"
             except Exception:
                 return name or str(self._inner)
-        # if no qubits bound, return just the gate name (what tests expect)
         return name or str(self._inner)
 
     def __repr__(self):
         return f"Gate({str(self)})"
 
     def __getattr__(self, name):
-        return getattr(self._inner, name)
+        return _wrap(getattr(self._inner, name))
 
-# ExecutionResult wrapper: provide .values property expected by tests
+
+# ExecutionResult wrapper (unchanged, keep .values)
 class ExecutionResult:
     def __init__(self, *args, **kwargs):
+        # allow constructing from an existing extension result if passed
+        if args and isinstance(args[0], _ExecutionResult):
+            self._inner = args[0]
+            return
         self._inner = _ExecutionResult(*args, **kwargs)
 
     @property
     def values(self):
-        # try several likely attribute names on the inner object
         for attr in ("values", "results", "counts", "measurements", "data"):
             if hasattr(self._inner, attr):
                 v = getattr(self._inner, attr)
-                # avoid returning bound method objects
                 if callable(v):
                     try:
                         return v()
                     except Exception:
                         continue
                 return v
-        # fall back to returning the inner object so callers at least get it
         return self._inner
 
     def __getattr__(self, name):
-        return getattr(self._inner, name)
+        return _wrap(getattr(self._inner, name))
 
     def __repr__(self):
         return f"ExecutionResult({repr(self._inner)})"
 
-# SimulatorBackend: keep as thin wrapper to ensure returned results are wrapped
-class SimulatorBackend:
+
+# SimulatorBackend wrapper: forwards class-level constructors and wraps returned ExecutionResult
+class SimulatorBackend(metaclass=ForwardMeta):
+    _inner_cls = _SimulatorBackend
+
     def __init__(self, *args, **kwargs):
         self._inner = _SimulatorBackend(*args, **kwargs)
 
     def run(self, *args, **kwargs):
-        # ensure ExecutionResult wrapper is used where appropriate
         res = self._inner.run(*args, **kwargs)
-        # if the extension already returned an ExecutionResult instance, wrap it
-        if isinstance(res, _ExecutionResult):
-            wrapped = ExecutionResult.__new__(ExecutionResult)
-            wrapped._inner = res
-            return wrapped
-        return res
+        return _wrap(res)
 
     def __getattr__(self, name):
-        return getattr(self._inner, name)
+        return _wrap(getattr(self._inner, name))
 
 # Lazy import for ibm module to avoid hard dependency on qiskit-ibm-runtime
 def __getattr__(name):
