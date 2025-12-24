@@ -125,6 +125,10 @@ impl PyGate {
     #[getter]
     fn name(&self) -> String {
         format!("{}", self.inner)
+            .split('(')
+            .next()
+            .unwrap_or("Unknown")
+            .to_string()
     }
 
     #[getter]
@@ -1165,12 +1169,30 @@ impl PyConvert {
             dict.set_item("num_qubits", circuit.inner.num_qubits)?;
             dict.set_item("depth", circuit.inner.depth())?;
             dict.set_item("gate_count", circuit.inner.gates.len())?;
-            let gates_list: Vec<_> = circuit
-                .inner
-                .gates
-                .iter()
-                .map(|g| format!("{}", g))
-                .collect();
+
+            let mut gates_list = Vec::new();
+            for gate in &circuit.inner.gates {
+                let mut gate_dict = HashMap::new();
+                let (name, qubits, params) = match gate {
+                    CoreGate::H(q) => ("H", vec![*q], vec![]),
+                    CoreGate::X(q) => ("X", vec![*q], vec![]),
+                    CoreGate::Y(q) => ("Y", vec![*q], vec![]),
+                    CoreGate::Z(q) => ("Z", vec![*q], vec![]),
+                    CoreGate::S(q) => ("S", vec![*q], vec![]),
+                    CoreGate::T(q) => ("T", vec![*q], vec![]),
+                    CoreGate::Rx(q, theta) => ("RX", vec![*q], vec![*theta]),
+                    CoreGate::Ry(q, theta) => ("RY", vec![*q], vec![*theta]),
+                    CoreGate::Rz(q, theta) => ("RZ", vec![*q], vec![*theta]),
+                    CoreGate::CNOT(c, t) => ("CNOT", vec![*c, *t], vec![]),
+                    CoreGate::CZ(c, t) => ("CZ", vec![*c, *t], vec![]),
+                    CoreGate::SWAP(a, b) => ("SWAP", vec![*a, *b], vec![]),
+                    CoreGate::Measure(q) => ("MEASURE", vec![*q], vec![]),
+                };
+                gate_dict.insert("name".to_string(), name.to_object(py));
+                gate_dict.insert("qubits".to_string(), qubits.to_object(py));
+                gate_dict.insert("params".to_string(), params.to_object(py));
+                gates_list.push(gate_dict);
+            }
             dict.set_item("gates", gates_list)?;
             Ok(dict.into())
         })
@@ -1182,9 +1204,44 @@ impl PyConvert {
             .get_item("num_qubits")?
             .ok_or_else(|| PyValueError::new_err("Missing num_qubits"))?
             .extract()?;
-        Ok(PyCircuit {
-            inner: CircuitGenome::new(num_qubits),
-        })
+
+        let mut inner = CircuitGenome::new(num_qubits);
+
+        if let Some(gates_item) = d.get_item("gates")? {
+            let gates_list: Vec<HashMap<String, PyObject>> = gates_item.extract()?;
+
+            for gate_dict in gates_list {
+                let name: String =
+                    Python::with_gil(|py| gate_dict.get("name").unwrap().extract(py))?;
+                let qubits: Vec<usize> =
+                    Python::with_gil(|py| gate_dict.get("qubits").unwrap().extract(py))?;
+                let params: Vec<f64> =
+                    Python::with_gil(|py| gate_dict.get("params").unwrap().extract(py))
+                        .unwrap_or_default();
+
+                let gate = match name.as_str() {
+                    "H" => CoreGate::H(qubits[0]),
+                    "X" => CoreGate::X(qubits[0]),
+                    "Y" => CoreGate::Y(qubits[0]),
+                    "Z" => CoreGate::Z(qubits[0]),
+                    "S" => CoreGate::S(qubits[0]),
+                    "T" => CoreGate::T(qubits[0]),
+                    "RX" => CoreGate::Rx(qubits[0], *params.first().unwrap_or(&0.0)),
+                    "RY" => CoreGate::Ry(qubits[0], *params.first().unwrap_or(&0.0)),
+                    "RZ" => CoreGate::Rz(qubits[0], *params.first().unwrap_or(&0.0)),
+                    "CNOT" => CoreGate::CNOT(qubits[0], qubits[1]),
+                    "CZ" => CoreGate::CZ(qubits[0], qubits[1]),
+                    "SWAP" => CoreGate::SWAP(qubits[0], qubits[1]),
+                    "MEASURE" => CoreGate::Measure(qubits[0]),
+                    _ => return Err(PyValueError::new_err(format!("Unknown gate: {}", name))),
+                };
+                inner
+                    .add_gate(gate)
+                    .map_err(|e| PyValueError::new_err(e.to_string()))?;
+            }
+        }
+
+        Ok(PyCircuit { inner })
     }
 }
 

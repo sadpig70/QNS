@@ -51,6 +51,7 @@ from .qns import (
     # other names left as-is
     NoiseVector, NoiseModel, HardwareProfile, QnsOptimizer, OptimizationResult,
     CalibrationData, estimate_circuit_fidelity, score_circuit, convert,
+    convert_circuit_to_qiskit, run_aer_simulation,
 )
 
 # make len(circuit) return number of gates
@@ -108,7 +109,7 @@ _Gate.__str__ = _gate___str__
 
 # ExecutionResult.values property to match tests
 def _executionresult_values(self):
-    for attr in ("values", "results", "counts", "measurements", "data"):
+    for attr in ("results", "counts", "measurements", "data"):
         if hasattr(self, attr):
             v = getattr(self, attr)
             if callable(v):
@@ -139,5 +140,6 @@ __all__ = [
     "Gate", "Circuit", "NoiseVector", "NoiseModel", "HardwareProfile",
     "QnsOptimizer", "OptimizationResult", "SimulatorBackend", "ExecutionResult",
     "CalibrationData", "estimate_circuit_fidelity", "score_circuit", "convert",
+    "convert_circuit_to_qiskit", "run_aer_simulation",
     "ibm",
 ]

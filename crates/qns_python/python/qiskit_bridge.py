@@ -8,7 +8,7 @@ calibration data fetching from IBM backends, and Aer simulation integration.
 from typing import Dict, List, Tuple, Optional
 import numpy as np
 from qiskit import QuantumCircuit
-from qiskit.circuit.library import HGate, XGate, YGate, ZGate, RXGate, RYGate, RZGate
+from qiskit.circuit.library import HGate, XGate, YGate, ZGate, SGate, TGate, RXGate, RYGate, RZGate
 from qiskit.circuit.library import CXGate, CZGate, SwapGate
 from qiskit_aer import AerSimulator
 from qiskit_aer.noise import NoiseModel, thermal_relaxation_error, depolarizing_error
@@ -27,6 +27,8 @@ class CircuitConverter:
         'X': (XGate, 1, False),
         'Y': (YGate, 1, False),
         'Z': (ZGate, 1, False),
+        'S': (SGate, 1, False),
+        'T': (TGate, 1, False),
         'RX': (RXGate, 1, True),
         'RY': (RYGate, 1, True),
         'RZ': (RZGate, 1, True),

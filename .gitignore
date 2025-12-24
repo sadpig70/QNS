@@ -44,11 +44,11 @@ criterion/
 .env.local
 
 # Project specific
-# _legacy/
-
+_legacy/
 .agent/
 .claude/
 CLAUDE.md
+
 
 # Python
 __pycache__/

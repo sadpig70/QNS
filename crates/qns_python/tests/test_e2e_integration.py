@@ -42,8 +42,8 @@ def test_e2e_bell_state_pipeline():
     circuit.add_gate(qns.Gate.h(0))
     circuit.add_gate(qns.Gate.cnot(0, 1))
     
-    print(f"    Circuit created: {circuit.num_qubits()} qubits, "
-          f"{circuit.num_gates()} gates")
+    print(f"    Circuit created: {circuit.num_qubits} qubits, "
+          f"{circuit.num_gates} gates")
     
     # Step 2: Convert to Qiskit (ConvertToPython)
     print("\n[2] Converting to Qiskit via Python bridge...")
@@ -104,7 +104,7 @@ def test_e2e_ghz_state_pipeline():
     circuit.add_gate(qns.Gate.cnot(0, 1))
     circuit.add_gate(qns.Gate.cnot(0, 2))
     
-    print(f"    Circuit: {circuit.num_qubits()} qubits, {circuit.num_gates()} gates")
+    print(f"    Circuit: {circuit.num_qubits} qubits, {circuit.num_gates} gates")
     
     # Run simulation
     print("\n[2] Running Aer simulation...")
@@ -165,7 +165,7 @@ def test_circuit_conversion_roundtrip():
     circuit.add_gate(qns.Gate.cz(2, 3))
     circuit.add_gate(qns.Gate.swap(0, 3))
     
-    print(f"    Created circuit with {circuit.num_gates()} gates")
+    print(f"    Created circuit with {circuit.num_gates} gates")
     
     # Convert
     print("\n[2] Converting to Qiskit...")
@@ -178,7 +178,7 @@ def test_circuit_conversion_roundtrip():
           f"{len(qiskit_circuit.data)} gates")
     
     # Validate gate count
-    assert len(qiskit_circuit.data) == circuit.num_gates()
+    assert len(qiskit_circuit.data) == circuit.num_gates
     
     print("\n✅ Roundtrip Test PASSED")
     print("="*60)

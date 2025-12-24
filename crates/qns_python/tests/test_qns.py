@@ -67,6 +67,7 @@ class TestGate:
         import qns
         h = qns.Gate.h(0)
         assert h.name == "H"
+        assert str(h) == "H(0)"
         assert h.qubits == [0]
         assert not h.is_two_qubit
     
@@ -74,6 +75,7 @@ class TestGate:
         import qns
         cnot = qns.Gate.cnot(0, 1)
         assert cnot.name == "CNOT"
+        assert str(cnot) == "CNOT(0, 1)"
         assert cnot.qubits == [0, 1]
         assert cnot.is_two_qubit
     
@@ -183,7 +185,7 @@ class TestSimulatorBackend:
         circuit.measure_all()
         
         counts = backend.run(circuit, shots=100)
-        assert sum(counts.values()) == 100
+        assert sum(counts.counts.values()) == 100
         
         # Check gate representation
         gates = circuit.gates
