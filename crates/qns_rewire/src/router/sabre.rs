@@ -16,7 +16,7 @@ pub struct SabreRouter {
     pub decay_rate: f64,
     /// Max iterations for bidirectional passes
     pub max_iterations: usize,
-    
+
     /// Weight for distance cost (swaps)
     pub dist_weight: f64,
     /// Weight for gate error cost
@@ -32,7 +32,7 @@ impl Default for SabreRouter {
             decay_rate: 0.001,
             max_iterations: 10,
             dist_weight: 1.0,
-            error_weight: 0.5,    // Default: balanced error awareness
+            error_weight: 0.5,     // Default: balanced error awareness
             crosstalk_weight: 0.5, // Default: balanced crosstalk awareness
         }
     }
@@ -241,7 +241,7 @@ impl SabreRouter {
                 Gate::CNOT(c, t) | Gate::CZ(c, t) | Gate::SWAP(c, t) => {
                     let p_c = mapping[*c];
                     let p_t = mapping[*t];
-                    
+
                     // 1. Distance Cost
                     let dist = hardware.shortest_path_distance(p_c, p_t).unwrap_or(100) as f64;
                     total_dist += dist;
@@ -249,10 +249,10 @@ impl SabreRouter {
                     // 2. Gate Error Cost (if adjacent)
                     // If dist == 1, we can check the actual edge error
                     if dist <= 1.5 {
-                         if let Some(coupler) = hardware.get_coupler(p_c, p_t) {
-                             total_error += coupler.gate_fidelity.error_rate();
-                         }
-                         active_edges.push((p_c, p_t));
+                        if let Some(coupler) = hardware.get_coupler(p_c, p_t) {
+                            total_error += coupler.gate_fidelity.error_rate();
+                        }
+                        active_edges.push((p_c, p_t));
                     }
                 },
                 _ => {},
@@ -262,26 +262,34 @@ impl SabreRouter {
         // 3. Crosstalk Cost
         // Calculate interaction between all pairs of active edges
         if self.crosstalk_weight > 0.0 && !active_edges.is_empty() {
-             for i in 0..active_edges.len() {
-                 for j in (i + 1)..active_edges.len() {
-                     let (q1, q2) = active_edges[i];
-                     let (q3, q4) = active_edges[j];
-                     
-                     // Check interactions: (q1, q3), (q1, q4), (q2, q3), (q2, q4)
-                     // CrosstalkMatrix stores interactions between pairs.
-                     // We verify if activating edge (q1,q2) affects edge (q3,q4).
-                     // Simplified model: sum of all pairwise qubit interactions between the two edges.
-                     
-                     if let Some(s) = hardware.crosstalk.get_interaction(q1, q3) { total_xtalk += s; }
-                     if let Some(s) = hardware.crosstalk.get_interaction(q1, q4) { total_xtalk += s; }
-                     if let Some(s) = hardware.crosstalk.get_interaction(q2, q3) { total_xtalk += s; }
-                     if let Some(s) = hardware.crosstalk.get_interaction(q2, q4) { total_xtalk += s; }
-                 }
-             }
+            for i in 0..active_edges.len() {
+                for j in (i + 1)..active_edges.len() {
+                    let (q1, q2) = active_edges[i];
+                    let (q3, q4) = active_edges[j];
+
+                    // Check interactions: (q1, q3), (q1, q4), (q2, q3), (q2, q4)
+                    // CrosstalkMatrix stores interactions between pairs.
+                    // We verify if activating edge (q1,q2) affects edge (q3,q4).
+                    // Simplified model: sum of all pairwise qubit interactions between the two edges.
+
+                    if let Some(s) = hardware.crosstalk.get_interaction(q1, q3) {
+                        total_xtalk += s;
+                    }
+                    if let Some(s) = hardware.crosstalk.get_interaction(q1, q4) {
+                        total_xtalk += s;
+                    }
+                    if let Some(s) = hardware.crosstalk.get_interaction(q2, q3) {
+                        total_xtalk += s;
+                    }
+                    if let Some(s) = hardware.crosstalk.get_interaction(q2, q4) {
+                        total_xtalk += s;
+                    }
+                }
+            }
         }
 
         // Weighted Sum
-        self.dist_weight * total_dist + 
+        self.dist_weight * total_dist +
         self.error_weight * total_error * 10.0 + // Scale error to be comparable to distance (0.01 vs 1.0)
         self.crosstalk_weight * total_xtalk * 100.0 // Scale crosstalk (0.001 ranges)
     }
