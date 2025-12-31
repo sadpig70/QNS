@@ -16,6 +16,7 @@ use tracing_subscriber::FmtSubscriber;
 use qns_cli::pipeline::QnsSystem;
 use qns_core::prelude::*;
 use qns_qasm::{parse_qasm, resolve_includes};
+use qns_zne::{ExtrapolationMethod, FidelityEstimator, ZneConfig, ZneExecutor};
 
 /// QNS - Quantum Noise Symbiote
 ///
@@ -73,6 +74,10 @@ enum Commands {
         /// Weight for crosstalk-aware routing (0.0 = disabled, >0.0 = enabled)
         #[arg(long, default_value = "0.0")]
         crosstalk_weight: f64,
+
+        /// Zero-Noise Extrapolation method (off, linear, richardson)
+        #[arg(long, default_value = "off")]
+        zne: String,
     },
 
     /// Benchmark the QNS pipeline
@@ -125,6 +130,7 @@ fn main() -> Result<()> {
             ibm_backend,
             no_optimize,
             crosstalk_weight,
+            zne,
         } => cmd_run(
             &input,
             &topology,
@@ -134,6 +140,7 @@ fn main() -> Result<()> {
             no_optimize,
             cli.format,
             crosstalk_weight,
+            &zne,
         ),
         Commands::Benchmark {
             qubits,
@@ -156,6 +163,7 @@ fn cmd_run(
     no_optimize: bool,
     format: OutputFormat,
     crosstalk_weight: f64,
+    zne_method: &str,
 ) -> Result<()> {
     let start = Instant::now();
 
@@ -228,6 +236,8 @@ fn cmd_run(
             improvement_percent: 0.0,
             total_time_ms: start.elapsed().as_secs_f64() * 1000.0,
             topology: topology.to_string(),
+            zne_method: "off".to_string(),
+            zne_zero_noise_fidelity: None,
         }
     } else {
         // Full optimization pipeline
@@ -242,6 +252,43 @@ fn cmd_run(
             0
         };
 
+        // ZNE 적용 (옵션)
+        let (zne_fidelity, zne_used) = if zne_method != "off" {
+            let method = match zne_method {
+                "linear" => ExtrapolationMethod::Linear,
+                "richardson" => ExtrapolationMethod::Richardson,
+                _ => {
+                    warn!("Unknown ZNE method '{}', using linear", zne_method);
+                    ExtrapolationMethod::Linear
+                },
+            };
+
+            let zne_config = ZneConfig {
+                method,
+                scale_factors: vec![1.0, 2.0, 3.0],
+                ..ZneConfig::default()
+            };
+
+            let estimator = FidelityEstimator::default();
+            let zne_executor = ZneExecutor::new(zne_config, estimator);
+
+            match zne_executor.execute(&pipeline_result.optimized_circuit) {
+                Ok(zne_result) => {
+                    info!(
+                        "ZNE applied: zero-noise fidelity = {:.4}",
+                        zne_result.zero_noise_value
+                    );
+                    (Some(zne_result.zero_noise_value), zne_method.to_string())
+                },
+                Err(e) => {
+                    warn!("ZNE failed: {}", e);
+                    (None, "error".to_string())
+                },
+            }
+        } else {
+            (None, "off".to_string())
+        };
+
         RunResult {
             input_file: input.display().to_string(),
             num_qubits,
@@ -254,6 +301,8 @@ fn cmd_run(
             improvement_percent: pipeline_result.fidelity_improvement * 100.0,
             total_time_ms: start.elapsed().as_secs_f64() * 1000.0,
             topology: topology.to_string(),
+            zne_method: zne_used,
+            zne_zero_noise_fidelity: zne_fidelity,
         }
     };
 
@@ -273,6 +322,17 @@ fn cmd_run(
             println!("Fidelity Before: {:.4}", result.fidelity_before);
             println!("Fidelity After:  {:.4}", result.fidelity_after);
             println!("Improvement:     {:.2}%", result.improvement_percent);
+
+            // ZNE 결과 출력
+            if result.zne_method != "off" {
+                println!();
+                println!("=== ZNE (Zero-Noise Extrapolation) ===");
+                println!("Method:     {}", result.zne_method);
+                if let Some(zne_fid) = result.zne_zero_noise_fidelity {
+                    println!("Zero-Noise Fidelity: {:.4}", zne_fid);
+                }
+            }
+
             println!();
             println!("Time:       {:.2} ms", result.total_time_ms);
         },
@@ -420,6 +480,9 @@ struct RunResult {
     improvement_percent: f64,
     total_time_ms: f64,
     topology: String,
+    zne_method: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    zne_zero_noise_fidelity: Option<f64>,
 }
 
 #[derive(serde::Serialize)]

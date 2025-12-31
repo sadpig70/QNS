@@ -66,8 +66,6 @@ pub struct StateVectorSimulator {
     state: Vec<C64>,
     /// Dimension (2^n)
     dimension: usize,
-    /// Random number generator for measurements
-    rng: rand::rngs::ThreadRng,
 }
 
 impl StateVectorSimulator {
@@ -93,7 +91,6 @@ impl StateVectorSimulator {
             num_qubits,
             state,
             dimension,
-            rng: rand::thread_rng(),
         }
     }
 
@@ -355,7 +352,8 @@ impl StateVectorSimulator {
 
     /// Samples a single measurement outcome.
     fn sample_outcome(&mut self, probs: &[f64]) -> usize {
-        let r: f64 = self.rng.gen();
+        let mut rng = rand::thread_rng();
+        let r: f64 = rng.gen();
         let mut cumulative = 0.0;
 
         for (i, &p) in probs.iter().enumerate() {
@@ -428,7 +426,8 @@ impl StateVectorSimulator {
             .map(|(_, a)| a.norm_sqr())
             .sum();
 
-        let result = if self.rng.gen::<f64>() < prob_0 { 0 } else { 1 };
+        let mut rng = rand::thread_rng();
+        let result = if rng.gen::<f64>() < prob_0 { 0 } else { 1 };
 
         // Collapse and renormalize
         let mut new_norm_sq = 0.0;
@@ -537,7 +536,6 @@ impl Clone for StateVectorSimulator {
             num_qubits: self.num_qubits,
             state: self.state.clone(),
             dimension: self.dimension,
-            rng: rand::thread_rng(),
         }
     }
 }

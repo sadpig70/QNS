@@ -944,6 +944,7 @@ dependencies = [
  "qns_rewire",
  "qns_simulator",
  "qns_tensor",
+ "qns_zne",
  "serde",
  "serde_json",
  "tokio",
@@ -1031,6 +1032,7 @@ dependencies = [
  "ndarray",
  "num-complex",
  "qns_core",
+ "qns_tensor",
  "rand",
  "thiserror",
  "tracing",
@@ -1046,6 +1048,20 @@ dependencies = [
  "qns_core",
  "qns_noise",
  "rand",
+ "thiserror",
+]
+
+[[package]]
+name = "qns_zne"
+version = "0.2.4"
+dependencies = [
+ "criterion",
+ "ndarray",
+ "num-complex",
+ "qns_core",
+ "qns_simulator",
+ "serde",
+ "serde_json",
  "thiserror",
 ]
 

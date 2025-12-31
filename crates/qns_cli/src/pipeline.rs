@@ -478,7 +478,7 @@ mod tests {
 // The tests require methods like `ideal()`, `with_noise()`, `get_qubit()` etc.
 
 #[cfg(test)]
-#[cfg(any())] // Disabled until SimulatorBackend API is fully implemented
+// #[cfg(any())] // Enabled as SimulatorBackend is partially implemented
 mod e2e_tests {
     use super::*;
     use qns_rewire::{score_circuit_variant, BeamSearchConfig, GateReorder};
@@ -502,10 +502,10 @@ mod e2e_tests {
 
         // 3. Get calibration data from backend
         let calibration = backend.get_calibration().unwrap();
-        assert_eq!(calibration.num_qubits, 3);
+        assert_eq!(calibration.len(), 3);
 
         // 4. Create NoiseVector from calibration
-        let noise_vec = calibration.get_qubit(0).unwrap().clone();
+        let noise_vec = calibration.get(&0).unwrap().clone();
         assert!(noise_vec.t1_mean > 0.0);
 
         // 5. Optimize circuit using LiveRewirer
@@ -514,13 +514,9 @@ mod e2e_tests {
         let optimized = rewirer.optimize(&noise_vec, 50).unwrap();
 
         // 6. Execute both circuits on backend
-        let original_result = backend
-            .execute(&circuit, 1000, qns_core::backend::ExecutionMode::Sync)
-            .unwrap();
+        let original_result = backend.execute(&circuit, 1000).unwrap();
 
-        let optimized_result = backend
-            .execute(&optimized, 1000, qns_core::backend::ExecutionMode::Sync)
-            .unwrap();
+        let optimized_result = backend.execute(&optimized.circuit, 1000).unwrap();
 
         // 7. Verify results
         assert_eq!(original_result.shots, 1000);
@@ -553,7 +549,7 @@ mod e2e_tests {
         // Get noise profile
         let backend = SimulatorBackend::new(5);
         let calibration = backend.get_calibration().unwrap();
-        let noise_vec = calibration.get_qubit(0).unwrap().clone();
+        let noise_vec = calibration.get(&0).unwrap().clone();
 
         // Use Beam Search
         let reorder = GateReorder::default();
@@ -564,12 +560,10 @@ mod e2e_tests {
 
         // Verify
         assert_eq!(best_circuit.gates.len(), circuit.gates.len());
-        assert!(best_score >= 0.0 && best_score <= 1.0);
+        assert!((0.0..=1.0).contains(&best_score));
 
         // Execute optimized circuit
-        let result = backend
-            .execute(&best_circuit, 100, qns_core::backend::ExecutionMode::Sync)
-            .unwrap();
+        let result = backend.execute(&best_circuit, 100).unwrap();
         assert!(!result.counts.is_empty());
     }
 
@@ -608,16 +602,12 @@ mod e2e_tests {
 
         // Ideal simulation
         let ideal_backend = SimulatorBackend::ideal(2);
-        let ideal_result = ideal_backend
-            .execute(&circuit, 1000, qns_core::backend::ExecutionMode::Sync)
-            .unwrap();
+        let ideal_result = ideal_backend.execute(&circuit, 1000).unwrap();
 
         // Noisy simulation
         let noise = NoiseModel::with_t1t2(50.0, 40.0); // High noise
         let noisy_backend = SimulatorBackend::with_noise(2, noise);
-        let noisy_result = noisy_backend
-            .execute(&circuit, 1000, qns_core::backend::ExecutionMode::Sync)
-            .unwrap();
+        let noisy_result = noisy_backend.execute(&circuit, 1000).unwrap();
 
         // Ideal should have perfect Bell state
         let p00_ideal = ideal_result.probability("00");
@@ -650,7 +640,7 @@ mod e2e_tests {
 
         // Measure execution time
         let start = std::time::Instant::now();
-        let _result = backend.execute(&circuit, 1000, qns_core::backend::ExecutionMode::Sync);
+        let _result = backend.execute(&circuit, 1000);
         let elapsed = start.elapsed();
 
         // Should complete in reasonable time (< 1 second for 5 qubits)
@@ -706,7 +696,7 @@ mod e2e_tests {
 
         let backend = SimulatorBackend::new(3);
         let calibration = backend.get_calibration().unwrap();
-        let noise_vec = calibration.get_qubit(0).unwrap().clone();
+        let noise_vec = calibration.get(&0).unwrap().clone();
 
         let reorder = GateReorder::default();
         let (best, score) =
@@ -726,19 +716,31 @@ mod e2e_tests {
         let backend = SimulatorBackend::with_noise(5, noise);
         let calibration = backend.get_calibration().unwrap();
 
-        // Check all qubits have consistent data
+        // Check each qubit
+        let mut total_t1 = 0.0;
+        let mut total_t2 = 0.0;
+        let count = calibration.len() as f64;
+
+        assert_eq!(count, 5.0);
+
         for i in 0..5 {
-            let qubit = calibration.get_qubit(i).unwrap();
+            let qubit = calibration.get(&i).expect("Qubit calibration missing");
             assert_eq!(qubit.qubit_id, i);
             assert!((qubit.t1_mean - 150.0).abs() < 1e-10);
             assert!((qubit.t2_mean - 120.0).abs() < 1e-10);
             assert!((qubit.gate_error_1q - 0.001).abs() < 1e-10);
             assert!((qubit.gate_error_2q - 0.01).abs() < 1e-10);
             assert!((qubit.readout_error - 0.02).abs() < 1e-10);
+
+            total_t1 += qubit.t1_mean;
+            total_t2 += qubit.t2_mean;
         }
 
         // Check averages
-        assert!((calibration.avg_t1() - 150.0).abs() < 1e-10);
-        assert!((calibration.avg_t2() - 120.0).abs() < 1e-10);
+        let avg_t1 = total_t1 / count;
+        let avg_t2 = total_t2 / count;
+
+        assert!((avg_t1 - 150.0).abs() < 1e-10);
+        assert!((avg_t2 - 120.0).abs() < 1e-10);
     }
 }

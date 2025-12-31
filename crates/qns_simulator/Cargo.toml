@@ -15,6 +15,7 @@ tracing = { workspace = true }
 num-complex = { workspace = true }
 ndarray = { workspace = true }
 rand = { workspace = true }
+qns_tensor = { workspace = true }
 
 [dev-dependencies]
 criterion = { workspace = true }

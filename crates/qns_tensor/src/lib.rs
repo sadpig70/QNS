@@ -431,4 +431,21 @@ mod tests {
         assert!((node[[0, 0, 0]].re - 0.0).abs() < 1e-10);
         assert!((node[[0, 1, 0]].re - 1.0).abs() < 1e-10);
     }
+
+    #[test]
+    fn test_apply_two_qubit_gate() {
+        // Bell State: H(0) -> CX(0, 1) -> (|00> + |11>) / sqrt(2)
+        let mut tn = TensorNetwork::new(2, 4);
+
+        tn.apply_gate(&Gate::H(0)).unwrap();
+        tn.apply_gate(&Gate::CNOT(0, 1)).unwrap();
+
+        // Contract to state vector and check
+        let sv = tn.contract_to_state_vector().unwrap();
+        // Expected: [0.707, 0, 0, 0.707]
+        assert!((sv[0].norm() - std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-5);
+        assert!(sv[1].norm() < 1e-10);
+        assert!(sv[2].norm() < 1e-10);
+        assert!((sv[3].norm() - std::f64::consts::FRAC_1_SQRT_2).abs() < 1e-5);
+    }
 }

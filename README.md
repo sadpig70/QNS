@@ -1,6 +1,6 @@
 # QNS MVP - Quantum Noise Symbiote
 
-![infographic](docs/qns_infographic_v2.4.png)
+![infographic](docs/qns_infographic_v2.5.png)
 
 **QNS (Quantum Noise Symbiote)** is a revolutionary quantum computing platform that transforms the traditional noise elimination paradigm into **noise symbiosis**.
 
@@ -12,16 +12,19 @@
 - **LiveRewirer**: Dynamic circuit rewiring based on noise profiles
 - **GateReorder**: Commutative gate reordering for optimization
 - **StateVectorSimulator**: Full state vector quantum simulation
+- 🆕 **MPS Simulator**: Efficient simulation of large quantum circuits with low entanglement
 - 🆕 **Crosstalk-Aware Routing**: Mitigate local interference (ZZ) errors via weighted routing
+- 🆕 **Zero-Noise Extrapolation (ZNE)**: Error mitigation by scaling noise and extrapolating to zero
 
 ## 📦 Crates
 
 | Crate | Description |
-|-------|-------------|
+| :--- | :--- |
 | `qns_core` | Core types: Gate, NoiseVector, CircuitGenome |
 | `qns_profiler` | Noise profiling and drift scanning |
 | `qns_rewire` | Circuit rewiring and optimization |
-| `qns_simulator` | Quantum state vector simulation |
+| `qns_simulator` | Quantum simulators (StateVector, MPS) |
+| `qns_zne` | Zero-Noise Extrapolation module |
 | `qns_cli` | Command-line interface |
 
 ## 🚀 Quick Start
@@ -53,9 +56,10 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-qns_core = "0.1"
-qns_profiler = "0.1"
-qns_rewire = "0.1"
+qns_core = "0.2"
+qns_profiler = "0.2"
+qns_rewire = "0.2"
+qns_zne = "0.1"
 ```
 
 ## 💻 CLI Usage
@@ -93,7 +97,17 @@ qns run circuit.qasm --backend aer-ideal --format json
 qns run circuit.qasm --crosstalk-weight 0.5
 ```
 
-**Supported Backends**: `simulator` (default), `aer-ideal`, `aer-noisy`, `aer-ibm`
+### Advanced Features (v2.5) ⭐
+
+```bash
+# 🆕 Zero-Noise Extrapolation (ZNE)
+qns run circuit.qasm --zne linear
+
+# 🆕 MPS Simulator (for large, shallow circuits)
+qns run circuit.qasm --backend mps
+```
+
+**Supported Backends**: `simulator` (default), `mps`, `aer-ideal`, `aer-noisy`, `aer-ibm`
 
 ### Other Commands
 
@@ -107,11 +121,12 @@ qns run circuit.qasm --crosstalk-weight 0.5
 ## 📊 Performance Targets
 
 | Module | Target |
-|--------|--------|
+| :--- | :--- |
 | DriftScan | <10ms |
 | GateReorder | <20ms |
 | LiveRewirer | <100ms |
 | StateVectorSim | <50ms (10 qubits) |
+| MpsSim | <100ms (20 qubits, low entanglement) |
 
 ## 📈 Benchmark Results
 
@@ -120,7 +135,7 @@ QNS LiveRewirer optimization (SABRE + optimization_level=3) vs Baseline (level=1
 ### Ideal Environment
 
 | Circuit | Baseline | QNS | Improvement |
-|---------|----------|-----|-------------|
+| :--- | :--- | :--- | :--- |
 | Bell | 1.0000 | 1.0000 | +0.0% |
 | GHZ-5 | 1.0000 | 0.9700 | -3.0% |
 | **VQE** | 0.4000 | **0.4576** | **+14.4%** |
@@ -128,14 +143,14 @@ QNS LiveRewirer optimization (SABRE + optimization_level=3) vs Baseline (level=1
 ### NISQ Environment (Noisy) ⭐
 
 | Circuit | Baseline | QNS | Improvement |
-|---------|----------|-----|-------------|
+| :--- | :--- | :--- | :--- |
 | GHZ-5 | 0.9700 | 0.9700 | +0.0% |
 | **VQE** | 0.3600 | **0.4576** | **+27.1%** ✅ |
 
 ### Crosstalk Resilience (Mock Backend) ⭐ NEW v2.4
 
 | Circuit | Crosstalk Weight | Fidelity | Improvement |
-|---------|------------------|----------|-------------|
+| :--- | :--- | :--- | :--- |
 | GHZ-5   | 0.0 (Baseline)   | 0.1094   | -           |
 | **GHZ-5** | **0.25+**      | **0.8816** | **+705.8%** |
 
@@ -151,7 +166,7 @@ python benchmarks/arxiv_benchmark.py --output benchmarks/results --noisy
 
 ## 📖 Documentation
 
-- [Technical Specification (English)](docs/QNS_Technical_Specification_v2.4.md)
+- [Technical Specification (English)](docs/QNS_Technical_Specification_v2.5.md)
 - [Technical Specification (Korean)](_legacy/docs/QNS_Technical_Specification_v2.3_kr.md)
 - [Qiskit Usage Examples](docs/QNS_Qiskit_Usage_Examples.md)
 - [Benchmark Results](docs/QNS_Benchmark_Results.md)

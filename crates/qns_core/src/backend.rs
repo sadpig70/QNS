@@ -23,6 +23,13 @@ impl ExecutionResult {
             metadata: HashMap::new(),
         }
     }
+
+    pub fn probability(&self, outcome: &str) -> f64 {
+        if self.shots == 0 {
+            return 0.0;
+        }
+        *self.counts.get(outcome).unwrap_or(&0) as f64 / self.shots as f64
+    }
 }
 
 pub trait HardwareBackend: Send + Sync {

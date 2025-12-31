@@ -1,0 +1,27 @@
+[package]
+name = "qns_zne"
+version.workspace = true
+edition.workspace = true
+authors.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+description = "Zero-Noise Extrapolation (ZNE) module for QNS"
+
+[dependencies]
+qns_core = { path = "../qns_core" }
+qns_simulator = { path = "../qns_simulator" }
+
+# 수학 및 과학
+ndarray.workspace = true
+num-complex.workspace = true
+
+# 에러 처리
+thiserror.workspace = true
+
+# 직렬화
+serde.workspace = true
+serde_json.workspace = true
+
+[dev-dependencies]
+criterion.workspace = true

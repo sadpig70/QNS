@@ -48,8 +48,6 @@ pub struct NoisySimulator {
     inner: StateVectorSimulator,
     /// Noise model
     noise: NoiseModel,
-    /// Random number generator
-    rng: rand::rngs::ThreadRng,
     /// Accumulated simulation time (for tracking decoherence)
     elapsed_time_ns: f64,
     /// Gate count for statistics
@@ -64,7 +62,6 @@ impl NoisySimulator {
         Self {
             inner: StateVectorSimulator::new(num_qubits),
             noise,
-            rng: rand::thread_rng(),
             elapsed_time_ns: 0.0,
             gate_count: 0,
             error_count: 0,
@@ -209,6 +206,8 @@ impl NoisySimulator {
         let state = self.inner.statevector().to_vec();
         let mut new_state = state.clone();
 
+        let mut rng = rand::thread_rng();
+
         for i in 0..dim {
             if (i & mask) == 0 {
                 let j = i | mask; // State with qubit=1
@@ -220,7 +219,7 @@ impl NoisySimulator {
                 // Sample whether decay happens based on |1⟩ probability
                 let prob_1 = state[j].norm_sqr();
 
-                if prob_1 > 1e-15 && self.rng.gen::<f64>() < gamma * prob_1 / (prob_1 + 1e-15) {
+                if prob_1 > 1e-15 && rng.gen::<f64>() < gamma * prob_1 / (prob_1 + 1e-15) {
                     // Decay happened: transfer amplitude from |1⟩ to |0⟩
                     let transfer = state[j] * C64::new(gamma.sqrt(), 0.0);
                     new_state[i] += transfer;
@@ -246,7 +245,7 @@ impl NoisySimulator {
     fn apply_phase_damping(&mut self, qubit: usize, lambda: f64) {
         // Phase damping reduces off-diagonal coherence
         // For state vector: randomly apply phase flip with probability λ
-        if self.rng.gen::<f64>() < lambda {
+        if rand::thread_rng().gen::<f64>() < lambda {
             self.apply_z_error(qubit);
             self.error_count += 1;
         }
@@ -255,9 +254,10 @@ impl NoisySimulator {
     /// Applies depolarizing error to specified qubits.
     fn apply_depolarizing_error(&mut self, qubits: Vec<usize>, error_rate: f64) {
         let channel = DepolarizingChannel::new(error_rate);
+        let mut rng = rand::thread_rng();
 
         for &qubit in &qubits {
-            let pauli = channel.sample(&mut self.rng);
+            let pauli = channel.sample(&mut rng);
             if pauli != 0 {
                 match pauli {
                     1 => self.apply_x_error(qubit),
@@ -338,9 +338,10 @@ impl NoisySimulator {
                 }
             }
 
+            let mut rng = rand::thread_rng();
             // Apply collected errors
             for (qubit, prob) in errors_to_apply {
-                if self.rng.gen::<f64>() < prob {
+                if rng.gen::<f64>() < prob {
                     self.apply_z_error(qubit);
                     self.error_count += 1;
                 }
@@ -385,6 +386,7 @@ impl NoisySimulator {
         let me = MeasurementError::symmetric(self.noise.readout_error);
         let mut results: HashMap<String, usize> = HashMap::new();
         let n = self.num_qubits();
+        let mut rng = rand::thread_rng();
 
         for _ in 0..shots {
             // Sample ideal outcome
@@ -394,7 +396,7 @@ impl NoisySimulator {
             let mut noisy_outcome = 0usize;
             for q in 0..n {
                 let bit = ((outcome >> q) & 1) as u8;
-                let noisy_bit = me.apply(bit, &mut self.rng);
+                let noisy_bit = me.apply(bit, &mut rng);
                 noisy_outcome |= (noisy_bit as usize) << q;
             }
 
@@ -407,7 +409,7 @@ impl NoisySimulator {
 
     /// Samples a single measurement outcome.
     fn sample_outcome(&mut self, probs: &[f64]) -> usize {
-        let r: f64 = self.rng.gen();
+        let r: f64 = rand::thread_rng().gen();
         let mut cumulative = 0.0;
 
         for (i, &p) in probs.iter().enumerate() {
@@ -450,7 +452,6 @@ impl Clone for NoisySimulator {
         Self {
             inner: self.inner.clone(),
             noise: self.noise.clone(),
-            rng: rand::thread_rng(),
             elapsed_time_ns: self.elapsed_time_ns,
             gate_count: self.gate_count,
             error_count: self.error_count,

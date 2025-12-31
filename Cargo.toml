@@ -9,6 +9,7 @@ members = [
     "crates/qns_tensor",
     "crates/qns_noise",
     "crates/qns_python",
+    "crates/qns_zne",
 ]
 resolver = "2"
 

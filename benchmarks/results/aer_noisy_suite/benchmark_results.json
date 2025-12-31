@@ -1,0 +1,22 @@
+[
+  {
+    "noise_level": "Low",
+    "circuit": "GHZ",
+    "qubits": 4,
+    "qiskit_fidelity": 0.5,
+    "qiskit_compile_time": 0.12140655517578125,
+    "qns_fidelity": 0.0,
+    "qns_compile_time": 0.0,
+    "qns_improvement": 0.0
+  },
+  {
+    "noise_level": "Low",
+    "circuit": "QFT",
+    "qubits": 4,
+    "qiskit_fidelity": 0.12,
+    "qiskit_compile_time": 0.0852811336517334,
+    "qns_fidelity": 0.0,
+    "qns_compile_time": 0.0,
+    "qns_improvement": 0.0
+  }
+]
